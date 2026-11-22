@@ -32,7 +32,7 @@ npm run build
 
 `src/data.js` がカード定義、`src/engine.js` がルールとCPU、`src/app.js` が画面、`worker/rooms.js` がサーバーです。同じエンジンをCPU戦とサーバーで使います。選択履歴をシードから再現して入力を検証し、各席の非公開情報を取り除いて配信します。クライアントが任意の盤面をサーバーに送る方式ではありません。
 
-`npm run build` で、同じ画面とAPIを含むWorker ESMを `dist/server/index.js` に生成。Sitesへはこのビルドを公開します。GitHubへのpush時はテスト後に静的画面をPagesに公開します。Pages設定がブランチ公開のままなら、Settings > Pages > Source を GitHub Actions に変更してください（ルートにHTMLも置いているので main / root のブランチ公開でも画面自体は動きます）。
+`npm run build` で、同じ画面とAPIを含むWorker ESMを `dist/server/index.js` に生成。Sitesへはこのビルドを公開します。GitHubへのpush時は回帰テストを実行します。Pagesは既存の main / root のブランチ公開設定を使用します。
 
 ## 検証範囲・制限
 
