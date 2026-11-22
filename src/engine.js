@@ -1,0 +1,265 @@
+import {CHARACTERS as CS,GUNS as GS,CARDS} from './data.js';
+export {CS,GS,CARDS};
+export const VERSION='gun-1';
+const clone=x=>JSON.parse(JSON.stringify(x)),same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+class Pause extends Error{};
+export class Invalid extends Error{};
+export class Game {
+ constructor(config={},events=[]){this.config=config;this.events=events;this.cursor=0;this.rng=(config.seed??123456789)>>>0;this.seq=0;this.s={version:VERSION,players:[],turn:0,active:0,phase:'selection',log:[],winner:null,pending:null,quiet:0};this.depth=0;this.moves=0;this.triggers=[];this.resolvingTriggers=false;}
+ random(){let x=this.rng;x^=x<<13;x^=x>>>17;x^=x<<5;this.rng=x>>>0;return this.rng/4294967296;}
+ shuffle(a){for(let i=a.length-1;i>0;i--){let j=Math.floor(this.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+ log(t){this.s.log.push(t);if(this.s.log.length>160)this.s.log.shift();}
+ ask(p,title,options,{min=1,max=1,key='choice',optional=false}={}){
+  if(this.s.winner!==null)return max>1||min===0?options.slice(0,min).map(o=>typeof o==='object'&&'value'in o?o.value:o):(typeof options[0]==='object'&&'value'in options[0]?options[0].value:options[0]);
+  if(!options.length)return max>1||min===0?[]:null;
+  const q={p,title,key:key+':'+this.seq++,options:options.map(o=>typeof o==='object'&&'value'in o?o:{label:String(o),value:o}),min,max,optional};
+  if(this.config.cpu===p){const v=this.ai(q);return v;}
+  const e=this.events[this.cursor];if(!e){this.s.pending=q;throw new Pause();}
+  if(e.p!==p||e.key!==q.key)throw new Invalid('選択の順番が変わりました。再読み込みしてください');
+  const vals=max>1||min===0?e.value:[e.value];
+  if(!Array.isArray(vals)||vals.length<min||vals.length>max||new Set(vals.map(JSON.stringify)).size!==vals.length||vals.some(v=>!q.options.some(o=>same(o.value,v))))throw new Invalid('選べない操作です');
+  this.cursor++;return e.value;
+ }
+ ai(q){const os=q.options;
+  if(q.max>1||q.min===0){const n=q.min===0?Math.min(q.max,os.length):q.min;return os.slice(0,n).map(x=>x.value);}
+  if(q.title.startsWith('装填枚数'))return os.at(-1).value;
+  if(q.title.includes('銃士を選択')||q.title.includes('機銃を選択')||q.title.includes('技能を秘密'))return os[Math.floor(this.random()*os.length)].value;
+  if(q.title==='メインフェイズ'){
+   const ranked=os.map(o=>[o,this.score(o.value)]).sort((a,b)=>b[1]-a[1]);return ranked[0][0].value;
+  }
+  if(q.key.startsWith('response'))return os.find(o=>o.value!=='pass')?.value??'pass';
+  return os[0].value;
+ }
+ score(a){if(typeof a!=='object')return 0;const p=this.s.players[this.s.active];switch(a.type){case'fire':return 85;case'load':return a.face?65:55;case'skill':return 75;case'ability':return 70;case'play':{let c=this.card(p.hand.find(c=>c.uid===a.uid));return c.type==='機能'?50:c.type==='対応'?35:42;}case'end':return -100;case'concede':return -100000;default:return 0;}}
+ card(c){return CARDS[c.name];} player(p){return this.s.players[p];} enemy(p){return 1-p;} name(p){return this.player(p).char.name;}
+ change(){this.moves++;}
+ makePlayer(lineup,p){const char=CS.find(c=>c.id===lineup.char);const guns=lineup.guns.map(id=>({id,ammo:[],up:true,loaded:0,fired:0,def:GS.find(g=>g.id===id)}));
+  const decks=guns.map(g=>this.shuffle(g.def.cards.flatMap(c=>Array.from({length:c.count},()=>({uid:'p'+p+'-'+this.seq++,name:c.name,owner:p,origin:g.id,face:false})))));
+  return {char:clone(char),guns,decks,hand:[],discard:[],voltage:[],functions:[],responses:[],skill:lineup.skill??0,skillUp:false,life:char.name==='マカ'?40:30,burn:0,shock:0,flags:{},temp:{},counts:{},turns:0};}
+ run(){try{this.select();this.s.phase='battle';this.opening();this.beginTurn();while(this.s.winner===null){if(this.cursor>16000)throw new Error('履歴の上限');const p=this.s.active;const a=this.ask(p,'メインフェイズ',this.actions(p).map(a=>({value:a,label:this.actionLabel(p,a)})),{key:'main'});this.perform(p,a);this.drain();if(this.forcedEnd&&this.s.winner===null)this.endTurn();this.check();}}catch(e){if(!(e instanceof Pause))throw e;}return this.s;}
+ select(){let chars=CS.filter(c=>!this.config.block||c.block===this.config.block),guns=GS.filter(g=>!this.config.block||g.block===this.config.block);let lineups=[];
+  if(this.config.draft){let cp=this.shuffle([...chars]).slice(0,6),gp=['ライト','ヘビー','スペシャル'].flatMap(k=>this.shuffle(guns.filter(g=>g.kind===k)).slice(0,2));const first=this.random()<.5?0:1;this.log('選出コイントス：'+(first===0?'部屋主':'参加者')+'から選択');lineups=[{guns:[]},{guns:[]}];this.s.draft={chars:cp,guns:gp,lineups,first};
+   for(const p of [first,1-first]){const id=this.ask(p,'銃士を選択',cp.map(c=>({value:c.id,label:c.name+' 速度'+c.speed+' 札'+c.hand})));lineups[p].char=id;cp=cp.filter(c=>c.id!==id);this.s.draft.chars=cp;}
+   for(const p of [first,1-first,1-first,first]){const id=this.ask(p,'機銃を選択',gp.map(g=>({value:g.id,label:g.name+' / '+g.kind+' / 重量'+g.weight})));lineups[p].guns.push(id);gp=gp.filter(g=>g.id!==id);this.s.draft.guns=gp;}
+  }else{
+   for(let p=0;p<2;p++){const preset=this.config.lineups?.[p];if(preset){this.validateLineup(preset);lineups[p]=clone(preset);continue;}
+    const char=this.ask(p,'銃士を選択',chars.map(c=>({value:c.id,label:c.name+' / 速度'+c.speed+' / 札'+c.hand})));let chosen=[];for(let n=0;n<2;n++)chosen.push(this.ask(p,n?'右の機銃を選択':'左の機銃を選択',guns.filter(g=>!chosen.includes(g.id)).map(g=>({value:g.id,label:g.name+' / '+g.kind+' / 重量'+g.weight}))));lineups[p]={char,guns:chosen};}
+  }
+  const ca=CS.find(c=>c.id===lineups[0].char),cb=CS.find(c=>c.id===lineups[1].char),weight=l=>l.guns.reduce((sum,id)=>sum+GS.find(g=>g.id===id).weight,0);
+  const battleFirst=ca.speed!==cb.speed?(ca.speed>cb.speed?0:1):weight(lineups[0])!==weight(lineups[1])?(weight(lineups[0])<weight(lineups[1])?0:1):(this.random()<.5?0:1);this.s.first=battleFirst;this.log('対戦先手：'+CS.find(c=>c.id===lineups[battleFirst].char).name);
+  // Skills and placement are private until both players confirm.
+  for(let p=0;p<2;p++){const l=lineups[p],c=CS.find(c=>c.id===l.char);if(l.skill===undefined)l.skill=this.ask(p,'技能を秘密に選択',c.skills.map((k,i)=>({value:i,label:k.name+' / V'+k.v+'：'+k.text})));if(this.config.draft){const swap=this.ask(p,'左右の配置を決定', [{value:0,label:'左 '+GS.find(g=>g.id===l.guns[0]).name+' ／右 '+GS.find(g=>g.id===l.guns[1]).name},{value:1,label:'左右を交換'}]);if(swap)l.guns.reverse();}}
+  this.s.players=lineups.map((l,p)=>this.makePlayer(l,p));for(let p=0;p<2;p++)if(this.name(p)==='アハト')this.player(p).char.hand=this.name(1-p)==='アハト'?4:this.player(1-p).char.hand+1;
+  this.s.active=battleFirst;delete this.s.draft;}
+ validateLineup(l){if(!l||!CS.some(c=>c.id===l.char&&(!this.config.block||c.block===this.config.block))||!Array.isArray(l.guns)||l.guns.length!==2||new Set(l.guns).size!==2||l.guns.some(id=>!GS.some(g=>g.id===id&&(!this.config.block||g.block===this.config.block)))||!Number.isInteger(l.skill??0)||(l.skill??0)<0||(l.skill??0)>2)throw new Invalid('編成が不正です');}
+ opening(){for(const p of [this.s.active,1-this.s.active])this.draw(p,this.player(p).char.hand,true);for(let p=0;p<2;p++)if(this.name(p)==='キルコ'){const a=this.pick(p,'開始時に引き直す手札',this.player(p).hand,0,this.player(p).hand.length);if(a.length){this.remove(this.player(p).hand,a);this.draw(p,a.length);this.recycle(p,a);}}}
+ deck(p,draw=true){const a=this.player(p);let opts=a.decks.map((d,i)=>({value:i,label:a.guns[i].def.name+' 山札 '+d.length+'枚'})).filter(o=>!draw||a.decks[o.value].length>0);if(!opts.length)return 0;return opts.length===1?opts[0].value:this.ask(p,'使用する山札を選択',opts);}
+ draw(p,n,rule=false,di=null,source='effect'){const a=this.player(p);if(n<=0||(!rule&&a.temp.noDraw))return;di??=this.deck(p);if(a.flags.maka===di||a.temp.poison===di)return;const list=a.decks[di].splice(0,n);a.hand.push(...list);if(list.length)this.change();this.check();if(!list.length)return;
+  const b=this.player(1-p);if(!rule&&source!=='char'&&source!=='group'&&this.enabled(1-p))for(const f of [...b.functions])if(f.name==='反応機構')this.trigger(1-p,'反応機構','hit',p,2);
+  if(this.enabled(1-p)&&this.name(1-p)==='ロック'&&this.s.active===p&&source!=='rock')this.trigger(1-p,'ロック','rock',1-p,list.length);}
+ pick(p,title,cards,min=1,max=1){min=Math.min(min,cards.length);max=Math.min(max,cards.length);if(!max)return [];const ids=this.ask(p,title,cards.map(c=>({value:c.uid,label:((c.owner!==p&&!c.face&&this.hidden(c))?'非公開カード '+c.uid:c.name)+(c.face?'［表］':'')})),{min,max,key:'cards'});return (Array.isArray(ids)?ids:[ids]).map(id=>cards.find(c=>c.uid===id));}
+ hidden(c){const a=this.player(c.owner);return a.voltage.includes(c)||a.responses.includes(c)||a.guns.some(g=>g.ammo.includes(c));}
+ remove(zone,cards){for(const c of cards){const i=zone.indexOf(c);if(i>=0)zone.splice(i,1);}if(cards.length)this.change();}
+ trash(p,cards,zone=null){if(zone)this.remove(zone,cards);for(const c of cards){c.face=false;const a=this.player(c.owner??p);if(c.name==='灰棄弾'&&this.s.active!==c.owner&&this.ask(c.owner,'灰棄弾をボルテージへ置く？',[{value:true,label:'ボルテージへ'},{value:false,label:'捨て札へ'}]))a.voltage.push(c);else a.discard.push(c);}if(cards.length)this.change();this.check();}
+ recycle(p,cards,bottom=false){for(const c of cards){c.face=false;const a=this.player(c.owner),i=a.guns.findIndex(g=>g.id===c.origin);a.decks[i].push(c);}if(!bottom)for(const a of this.s.players)for(const d of a.decks)this.shuffle(d);if(cards.length)this.change();}
+ enabled(p){return !this.player(p).temp.nullified;}
+ functions(p,n){return this.enabled(p)?this.player(p).functions.filter(c=>c.name===n).length:0;}
+ trigger(owner,name,type,target,n){this.triggers.push({owner,name,type,target,n});}
+ drain(){if(this.resolvingTriggers)return;this.resolvingTriggers=true;const seen=new Set();try{while(this.triggers.length&&this.s.winner===null){const signature=JSON.stringify([this.s.players,this.triggers]);if(seen.has(signature)){this.s.winner='draw';this.log('止められない永久循環：引き分け');break;}seen.add(signature);const own=this.triggers.some(t=>t.owner===this.s.active)?this.s.active:1-this.s.active;const jobs=this.triggers.filter(t=>t.owner===own);const chosen=jobs.length===1?0:this.ask(own,'同時発生効果の処理順',jobs.map((t,i)=>({value:i,label:t.name})));const t=jobs[chosen];this.triggers.splice(this.triggers.indexOf(t),1);if(t.type==='hit')this.hit(t.target,t.n,t.owner);if(t.type==='heal')this.heal(t.target,t.n);if(t.type==='mill')this.mill(t.target,t.n,t.owner);if(t.type==='draw')this.draw(t.target,t.n);if(t.type==='rock')this.draw(t.target,Math.min(t.n,Math.max(0,6-this.player(t.target).hand.length)),false,null,'rock');if(t.type==='discard')this.discardHand(t.target,t.n);}}finally{this.resolvingTriggers=false;}}
+ heal(p,n,source='effect'){if(n<=0)return;const a=this.player(p);a.life+=n;this.change();this.log(this.name(p)+' '+n+'回復');if(++this.depth>80){this.s.winner='draw';this.log('止められない循環：引き分け');this.depth--;return;}if(a.flags.hate&&this.enabled(p))this.trigger(p,'HATE EATER','hit',1-p,n);if(source!=='char')for(let i=0;i<this.functions(1-p,'PS/Negative');i++)this.trigger(1-p,'PS/Negative','mill',p,n);this.depth--;}
+ hit(p,n,from=1-p,kind='effect'){const a=this.player(p);if(a.temp.zeroHit||a.flags.makaGuard&&this.enabled(p)&&a.voltage.length>=3&&this.ask(p,'HITをボルテージ3枚の破棄に置き換える？',[{value:true,label:'置き換える'},{value:false,label:'HITを受ける'}])){if(!a.temp.zeroHit)this.trash(p,this.pick(p,'破棄するボルテージ',a.voltage,3,3),a.voltage);return;}
+  n=Math.max(0,n);if(!n)return;a.life=Math.max(0,a.life-n);this.change();this.log(this.name(p)+' '+n+'HIT');this.check();if(this.s.winner!==null)return;
+  if(++this.depth>80){this.s.winner='draw';this.depth--;return;}if(this.enabled(p)&&this.name(p)==='ナトリ'&&n>=3)this.trigger(p,'ナトリ','hit',1-p,1);for(let i=0;i<this.functions(1-p,'吸熱機構');i++)this.trigger(1-p,'吸熱機構','heal',1-p,1);if(kind!=='burn'&&from!==p&&this.player(from).flags.rock&&this.enabled(from))this.trigger(from,'Rock[N] Roll','draw',from,1);if(from!==p)for(let i=0;i<(this.player(from).temp.snipe||0);i++)this.trigger(from,'スナイプ','discard',p,1);this.depth--;}
+ lose(p,n){const a=this.player(p);a.life=Math.max(0,a.life-n);if(n)this.change();this.check();}
+ check(){if(this.s.winner!==null||!this.s.players.length)return;for(let p=0;p<2;p++){const a=this.player(p);if(a.flags.protectUntil>=this.s.turn)continue;if(a.life<=0||a.decks.every(d=>!d.length)||a.guns.every(g=>!g.up)||(a.flags.maka!==undefined&&!a.decks[1-a.flags.maka].length)){this.s.winner=1-p;this.log(this.name(p)+'の敗北');return;}}}
+ mill(p,n,chooser=1-p){const a=this.player(p),di=this.deckFor(chooser,p);this.trash(p,a.decks[di].splice(0,n));}
+ deckFor(chooser,p){const a=this.player(p),opts=a.decks.map((d,i)=>({value:i,label:this.name(p)+' / '+a.guns[i].def.name+' 山札 '+d.length+'枚'})).filter(o=>a.decks[o.value].length);if(!opts.length)return 0;return opts.length===1?opts[0].value:this.ask(chooser,'対象の山札',opts);}
+ discardHand(p,n){const a=this.player(p);this.trash(p,this.pick(p,'捨てる手札',a.hand,Math.min(n,a.hand.length),Math.min(n,a.hand.length)),a.hand);}
+ randomDiscard(p,n){const a=this.player(p);this.trash(p,this.shuffle([...a.hand]).slice(0,n),a.hand);}
+ gun(p,title='機銃を選択',filter=()=>true,chooser=p){const opts=this.player(p).guns.map((g,i)=>({g,i})).filter(x=>filter(x.g)).map(x=>({value:x.i,label:this.name(p)+' / '+x.g.def.name+' 装填'+this.ammoCount(x.g)}));if(!opts.length)return null;return opts.length===1?opts[0].value:this.ask(chooser,title,opts);}
+ ammoCount(g){return g.ammo.reduce((n,c)=>n+(c.face&&c.name==='ダブルバレット'?2:1),0);}
+ canLoad(p,g,c,face){const a=this.player(p);return this.ammoCount(g)+(face&&c.name==='ダブルバレット'?2:1)<=g.def.max&&(!this.enabled(p)||!((g.def.name==='ダイダラ'&&!face)||(g.def.name==='ドドメ'&&face)))&&(!face||this.card(c).type==='銃弾')&&(!face||c.name!=='ダブルバレット'||!a.counts.double)&&(!face||!c.name.startsWith('凶弾：')||!a.counts.limitBullet||a.temp.unlimit);}
+ load(p,c,face=false,gi=null,effect=true){const a=this.player(p);if(effect&&a.temp.noEffectLoad)return false;gi??=this.gun(p,'装填先を選択',g=>this.canLoad(p,g,c,face));if(gi===null||!this.canLoad(p,a.guns[gi],c,face))return false;const g=a.guns[gi];c.face=face;g.ammo.push(c);this.change();if(face){if(c.name==='ダブルバレット')a.counts.double=1;if(c.name.startsWith('凶弾：'))a.counts.limitBullet=1;if(c.name==='爆裂弾')this.hit(p,1,p);if(this.player(1-p).flags.patch)this.hit(p,3,1-p);}
+  if(effect&&this.functions(1-p,'エラー・パッチ'))a.temp.noFire=true;return true;}
+ deckLoad(p,n,gi=null,faceChoice=false){const a=this.player(p);if(a.temp.noEffectLoad)return;const di=this.deck(p,false);for(let i=0;i<n;i++){const c=a.decks[di][0];if(!c)break;let face=false;if(faceChoice&&this.card(c).type==='銃弾')face=this.ask(p,c.name+'の装填方法',[{value:true,label:'表向き'},{value:false,label:'裏向き'}]);if(!this.load(p,c,face,gi))break;a.decks[di].shift();this.check();}}
+ cost(p,c,zone='hand'){if(!c)return false;const a=this.player(p),n=this.card(c).cost;const pool=a.hand.filter(x=>x!==c);if(pool.length<n)return false;if(n)this.trash(p,this.pick(p,'COSTとして捨てる手札',pool,n,n),a.hand);return true;}
+ payV(p,n){const a=this.player(p);if(n)this.trash(p,this.pick(p,'支払うボルテージ',a.voltage,n,n),a.voltage);}
+ skillCost(p){const a=this.player(p),k=a.char.skills[a.skill];return k.name==='がんばる!!'&&a.life<=15?6:k.v;}
+ skillAvailable(p,response=false){const a=this.player(p),v=this.skillCost(p);return !a.skillUp&&!a.temp.noSkill&&!a.counts.skill&&(this.name(p)==='アマタ')===response&&(v==='X'||a.voltage.length>=v);}
+ actions(p){const a=this.player(p),out=[];if(this.s.winner!==null)return out;
+  if(this.skillAvailable(p))out.push({type:'skill'});
+  if(this.enabled(p)&&!a.counts.ability&&['ヒバナ','テトラ','ウノ'].includes(this.name(p))&&!(this.name(p)==='ウノ'&&a.temp.noEffectLoad)&&!(this.name(p)==='ウノ'&&a.flags.sew))out.push({type:'ability'});
+  for(let gi=0;gi<2;gi++){const g=a.guns[gi];if(g.up&&!a.temp.noFire&&!g.blocked&&(!g.fired||a.temp.rapid)&&this.canFire(p,gi))out.push({type:'fire',gi});
+   if(g.loaded<(a.temp.rapid?999:g.def.load)&&!a.temp.noBasicLoad&&g.def.load!==0)for(const c of a.hand)for(const face of [false,true])if(this.canLoad(p,g,c,face)&&(!face||!['スプレッドボム','リカバリーボム'].includes(c.name)))out.push({type:'load',uid:c.uid,gi,face});}
+  for(const c of a.hand){const d=this.card(c);if(d.type==='対応'){out.push({type:'set',uid:c.uid});continue;}if(d.type==='銃弾')continue;if(a.hand.length-1<d.cost||d.type==='行動'&&(a.temp.noAction||(this.functions(1-p,'ノイズジェネレーター')&&a.counts.actions)))continue;
+   if(d.text.includes('同名1ターン1枚')&&a.counts[c.name]||c.name.startsWith('強行：')&&a.counts.limitAction&&!a.temp.unlimit||c.name==='オーバーヒート'&&a.turns===1||c.name==='ブリッツ'&&a.flags.blitz||c.name==='白虹貫日'&&(a.turns===1||a.skillUp))continue;
+   if(a.temp.noEffectLoad&&['装填変更','銃弾生成'].includes(c.name))continue;const oc=this.ocName(c.name);if(oc&&!a.guns.some(g=>g.up&&g.def.name===oc))continue;
+   const extra={'轟雷砲':['ヌエ',6],'ヘッドショット':['ダタラ',4],'亜空光線':['ウワン',3],'過焔地獄':['キヨヒメ',5]}[c.name];if(extra&&!a.guns.some(g=>g.up&&g.def.name===extra[0]&&this.ammoCount(g)>=extra[1]))continue;
+   if(c.name==='シャット・ダウン'&&(this.player(1-p).guns.some(g=>!g.up)||this.player(1-p).shock<3))continue;
+   out.push({type:'play',uid:c.uid});}
+  out.push({type:'end'},{type:'concede'});return out;}
+ actionLabel(p,a){const me=this.player(p);if(a.type==='play')return '使用：'+me.hand.find(c=>c.uid===a.uid).name;if(a.type==='set')return 'セット：'+me.hand.find(c=>c.uid===a.uid).name;if(a.type==='load')return (a.face?'表':'裏')+'装填：'+me.hand.find(c=>c.uid===a.uid).name+' → '+me.guns[a.gi].def.name;if(a.type==='fire')return me.guns[a.gi].def.name+'で射撃';return {skill:'技能：'+me.char.skills[me.skill].name,ability:'銃士効果',end:'ターン終了',concede:'投了'}[a.type];}
+ perform(p,a){const me=this.player(p);switch(a.type){case'concede':this.s.winner=1-p;return;case'end':this.endTurn();return;case'load':{const c=me.hand.find(c=>c.uid===a.uid);this.remove(me.hand,[c]);this.load(p,c,a.face,a.gi,false);me.guns[a.gi].loaded++;return;}case'set':{const c=me.hand.find(c=>c.uid===a.uid);this.remove(me.hand,[c]);me.responses.push(c);return;}case'fire':this.fire(p,a.gi);return;case'skill':this.skill(p);return;case'ability':this.ability(p);return;case'play':{const c=me.hand.find(c=>c.uid===a.uid);this.cost(p,c);this.remove(me.hand,[c]);me.counts[c.name]=1;if(c.name.startsWith('強行：'))me.counts.limitAction=1;if(this.card(c).type==='機能'){if(this.player(1-p).flags.bolt)this.hit(p,3,1-p);me.functions.push(c);this.change();this.onFunction(p,c);}else{me.counts.actions=(me.counts.actions||0)+1;if(this.player(1-p).flags.trick)this.hit(p,3,1-p);if(this.s.winner!==null)return;this.effect(p,c.name);this.trash(p,[c]);}return;}}}
+ ocName(n){return {'凶強：解':'ヒカギリ','一気討殲':'ロクロ','アルマゲドン':'ダイダラ','モード：ファランクス':'モウリョウ','現喰い':'バク','カーテン・コール':'コダマ','白虹貫日':'ミツメ','ビッグバン':'カシャ','シャット・ダウン':'ヒダル'}[n];}
+ oc(p,name){const g=this.player(p).guns.find(g=>g.def.name===name&&g.up);if(!g)return null;g.up=false;this.change();this.check();return g;}
+ canFire(p,i){const a=this.player(p),g=a.guns[i],n=this.ammoCount(g)+(a.flags.sew&&g.ammo.length?2:0);const minimum={エンラ:1,ヌエ:4,ダタラ:2,カサネ:1,ハクメン:2,ウワン:1,ドドメ:1,キヨヒメ:3,ツエツキ:2,ヒカギリ:1,ロクロ:1,ダイダラ:2,モウリョウ:6,バク:2,コダマ:999,ミツメ:1,カシャ:4,ヒダル:3}[g.def.name];return n>=minimum&&!(g.ammo.some(c=>c.face&&c.name==='パワードシェル')&&n<=3)&&a.flags.maka!==i;}
+ fire(p,i,extra=false){const a=this.player(p),b=this.player(1-p),g=a.guns[i];if(!g.up||a.temp.noFire||g.blocked||!this.canFire(p,i))return;let used=[...g.ammo];if(g.def.name==='ロクロ')used=this.pick(p,'射撃に使う装填（0〜3枚）',g.ammo,0,Math.min(3,g.ammo.length));const bullets=used.filter(c=>c.face).map(c=>({...c}));const actual=used.reduce((n,c)=>n+(c.face&&c.name==='ダブルバレット'?2:1),0),n=Math.min(g.def.max,actual+(a.flags.sew&&g.ammo.length?2:0));this.remove(g.ammo,used);for(const c of used){if(a.flags.makaLoad||c.face&&c.name==='静音貫通弾')this.trash(p,[c]);else a.voltage.push(c);}if(!extra)g.fired++;
+ const table={エンラ:[[1,1],[2,3],[3,5]],ヌエ:[[4,7],[5,10],[6,14]],ダタラ:[[2,2],[3,3],[4,4]],カサネ:[[1,2],[2,4],[3,6]],ハクメン:[[2,2],[3,3],[4,5]],ウワン:[[1,1],[2,2],[3,4]],ドドメ:[[1,1],[2,3],[3,5],[4,7]],キヨヒメ:[[3,0],[5,0]],ツエツキ:[[2,0],[3,0],[4,0]],ヒカギリ:[[1,2],[2,4]],ロクロ:[[0,0],[1,1],[2,3],[3,5]],ダイダラ:[[2,4],[4,9]],モウリョウ:[[6,10]],バク:[[2,0],[3,0]],ミツメ:[[1,1],[2,2],[3,3]],カシャ:[[4,6],[6,10]],ヒダル:[[3,3],[5,3]]};let base=table[g.def.name].filter(x=>x[0]<=n).at(-1)?.[1]??0;
+ const attack={p,kind:'fire',gi:i,n,hit:base,cancel:false,jammed:false,noResponse:g.def.name==='ダタラ'||a.flags.leftQuiet&&this.enabled(p)&&i===0};attack.hit+=this.functions(p,'スパイラル・シューター')+(a.voltage.length>b.voltage.length?this.functions(p,'紅燐光器'):0)+(a.flags.rightPower&&this.enabled(p)&&i===1?3:0)+(a.temp.nextShot||0)+(a.temp.shotBuff||0);a.temp.nextShot=0;
+ if(this.enabled(p)&&this.name(p)==='ナナネ'&&!a.counts['nanane'+i]){a.counts['nanane'+i]=1;this.draw(p,1,false,null,'char');}
+ if(this.enabled(p))for(const c of bullets)this.bullet(p,c,attack);
+ this.drain();this.log(this.name(p)+' '+g.def.name+' 射撃 '+attack.hit+'HIT');
+ // The defending bomb is a bullet timing, before ordinary responses.
+ while(b.hand.some(c=>c.name==='チューニング・ボム')){const yes=this.ask(1-p,'チューニング・ボムを使用？',[{value:true,label:'使用する'},{value:false,label:'使わない'}],{key:'bomb'});if(!yes)break;const c=b.hand.find(c=>c.name==='チューニング・ボム');this.remove(b.hand,[c]);if(!this.load(1-p,c,true))this.trash(1-p,[c]);if(attack.hit>=6)attack.hit=0;}
+ attack.hit-=b.flags.catch&&this.enabled(1-p)?2:0;attack.hit-=this.functions(1-p,'スピンシールド');attack.hit=Math.max(0,attack.hit);this.respond(attack);if(this.s.winner!==null||attack.cancel)return;
+ if(b.temp.zeroHit)attack.hit=0;if(attack.hit>=3&&this.functions(1-p,'多重力光球')){const yes=this.ask(1-p,'多重力光球で射撃HITを置き換える？',[{value:true,label:'置き換える'},{value:false,label:'受ける'}]);if(yes){const c=b.functions.find(c=>c.name==='多重力光球');this.remove(b.functions,[c]);this.recycle(1-p,[c],true);attack.hit=0;}}
+ this.hit(1-p,attack.hit,p,'fire');if(this.s.winner!==null)return;
+ if(!attack.jammed&&this.enabled(p)){if(g.def.name==='カサネ')this.hit(p,Math.floor(base/2),p);if(g.def.name==='ハクメン')this.heal(p,attack.hit);if(g.def.name==='ウワン')this.mill(1-p,attack.hit,p);if(g.def.name==='キヨヒメ'){b.burn+=n>=5?2:1;this.change();}if(g.def.name==='ツエツキ')this.destroy(p,1-p,n-1,true);if(g.def.name==='バク')this.randomDiscard(1-p,n>=3?2:1);if(g.def.name==='ダイダラ'&&n>=4){const j=this.gun(1-p,'次のターン射撃禁止にする機銃',()=>true,p);b.flags['blockNext'+j]=true;}if(g.def.name==='モウリョウ')this.deckLoad(p,6,i);if(g.def.name==='ダタラ'&&n>=4)a.temp.recover=(a.temp.recover||0)+1;if(g.def.name==='ミツメ'&&attack.hit&&this.ask(p,'与えたHIT分をボルテージへ？',[{value:true,label:'置く'},{value:false,label:'置かない'}]))this.toVoltage(p,attack.hit,i);if(g.def.name==='カシャ'&&n>=6)b.flags.noSkillNext=true;if(g.def.name==='ヒダル'&&attack.hit>0){b.shock+=n>=5?2:1;this.change();}}
+ }
+ bullet(p,c,x){const b=this.player(1-p);switch(c.name){case'ステルスバレット':case'ステルスシェル':x.noResponse=true;break;case'パラライズバレット':case'凶弾：静':b.flags.noActionNext=true;break;case'フリーズバレット':b.flags.noBasicLoadNext=true;break;case'ポイズンバレット':if(!this.player(p).counts.poison){b.flags.poisonNext=this.deckFor(p,1-p);this.player(p).counts.poison=1;}break;case'エコーバレット':b.flags.noSkillNext=true;break;case'昏倒弾':b.flags.noEffectLoadNext=true;break;case'爆裂弾':case'静音貫通弾':x.hit++;break;case'徹甲榴弾':if(x.n>=4)x.hit+=2;break;case'凶弾：裂':case'パワードシェル':case'スプレッドボム':x.hit+=2;break;case'凶弾：充':this.draw(p,1);break;case'ドレイン・ボルト':this.heal(p,1);break;case'リカバリシェル':this.heal(p,4);break;case'リカバリーボム':this.draw(p,1);this.heal(p,3);break;case'反物質光弾':this.mill(1-p,1,p);break;case'ショックシェル':this.randomDiscard(1-p,1);break;case'連鎖充填弾':this.deckLoad(p,1,x.gi);break;}}
+ respond(x){const p=1-x.p,a=this.player(p);if(x.noResponse||a.temp.noResponse)return;const eligible=c=>{const d=this.card(c);if(a.hand.length<d.cost)return false;if(['整息','相撃ち','インパクト・チャージ'].includes(c.name)&&x.hit<3)return false;if(c.name==='迎撃'&&x.kind!=='fire')return false;if(c.name==='ビッグバン'&&(x.hit<1||!a.guns.some(g=>g.def.name==='カシャ'&&g.up)))return false;if(c.name==='カーテン・コール'&&!a.guns.some(g=>g.def.name==='コダマ'&&g.up))return false;return true;};let options=[{value:'pass',label:'対応しない'},...a.responses.filter(eligible).map(c=>({value:c.uid,label:c.name+' / C'+this.card(c).cost+'：'+this.card(c).text}))];if(this.skillAvailable(p,true)&&!(x.skillName==='焔送り'))options.push({value:'skill',label:'対応技能：'+a.char.skills[a.skill].name});if(options.length===1)return;const id=this.ask(p,'相手の'+(x.kind==='fire'?'射撃':'技能')+' '+x.hit+'HITに対応',options,{key:'response'});if(id==='pass')return;if(id==='skill'){this.skill(p,x);this.drain();return;}const c=a.responses.find(c=>c.uid===id);this.cost(p,c);this.remove(a.responses,[c]);if(this.player(x.p).flags.bolt)this.hit(p,3,x.p);if(this.s.winner!==null)return;this.responseEffect(p,c,x);this.drain();if(!a.guns.some(g=>g.ammo.includes(c))&&!a.functions.includes(c))this.trash(p,[c]);}
+ responseEffect(p,c,x){const a=this.player(p),reduce=n=>x.hit=Math.max(0,x.hit-n);switch(c.name){case'緊急回避':case'危機感知':case'威嚇射撃':case'ガードセット':case'ガード＆リロード':case'サイドステップ':reduce(3);break;case'多層防壁':case'焼却壁':reduce(5);break;case'奪火':case'閃光幕':reduce(2);break;case'PS/Guard':reduce(this.player(1-p).shock>=2?4:2);break;case'迎撃':x.hit=0;break;case'ジャミング':x.jammed=true;break;case'マキシマムガード':a.temp.zeroHit=true;x.hit=0;break;case'炎転化':this.deckLoad(p,2);x.hit=Math.floor(x.hit/2);break;case'バックファイア':this.hit(1-p,6,p);break;case'相撃ち':this.hit(1-p,3,p);break;case'インパクト・チャージ':this.heal(p,5);break;case'過熱':this.draw(p,Math.max(0,5-a.hand.length));break;case'クイック・ジョイント':{const fs=a.discard.filter(c=>this.card(c).type==='機能'&&this.card(c).cost<=1),cs=this.pick(p,'発動する機能',fs,0,1);if(cs.length){this.remove(a.discard,cs);a.functions.push(cs[0]);this.onFunction(p,cs[0]);}break;}case'ビッグバン':this.oc(p,'カシャ');if(this.s.winner===null){this.hit(1-p,x.hit,p);this.heal(p,x.hit);}break;case'カーテン・コール':this.oc(p,'コダマ');if(this.s.winner===null){this.mill(1-p,5,p);a.flags.protectUntil=this.s.turn+(this.s.active===p?2:1);}break;case'PS/Toxic':{const v=this.ask(p,'PS/Toxic',[{value:'draw',label:'2枚引いて1枚捨てる'},...(this.player(1-p).shock<=3?[{value:'shock',label:'相手にショック1'}]:[])]);if(v==='draw'){this.draw(p,2);this.discardHand(p,1);}else{this.player(1-p).shock++;this.change();}break;}}
+ if(['整息','奪火'].includes(c.name)){this.load(p,c,false);if(c.name==='整息')this.draw(p,1);}
+ if(c.name==='ガードセット'&&this.ask(p,'このカードを装填？',[{value:true,label:'装填する'},{value:false,label:'捨て札へ'}]))this.load(p,c,false);
+ if(c.name==='閃光幕')this.recover(p,1,c=>this.card(c).type==='行動');
+ if(['危機感知','威嚇射撃'].includes(c.name)){const all=a.guns.flatMap(g=>g.ammo),cs=this.pick(p,'追加で捨てる装填',all,0,1);if(cs.length){this.trashAmmo(p,cs);if(c.name==='威嚇射撃')this.hit(1-p,3,p);else this.returnDiscard(p,5,()=>true,true);}}
+ if(['サイドステップ','ガード＆リロード'].includes(c.name)){const di=this.deck(p),top=a.decks[di][0];if(top){const isBullet=this.card(top).type==='銃弾';let loaded=false;if(c.name==='ガード＆リロード'||isBullet){const yes=this.ask(p,'公開：'+top.name,[{value:true,label:'装填する'},{value:false,label:c.name==='ガード＆リロード'?'手札へ':'山札に戻す'}]);if(yes){const face=isBullet?this.ask(p,'表裏',[{value:true,label:'表向き'},{value:false,label:'裏向き'}]):false;loaded=this.load(p,top,face);}}if(loaded)a.decks[di].shift();else if(c.name==='ガード＆リロード'){a.decks[di].shift();a.hand.push(top);}this.check();}}
+ }
+ skill(p,against=null){const a=this.player(p),b=this.player(1-p),k=a.char.skills[a.skill];let v=this.skillCost(p);if(v==='X')v=this.ask(p,'支払うVを指定',Array.from({length:a.voltage.length+1},(_,i)=>i));const burst=a.life<=15;this.payV(p,v);a.skillUp=true;if(k.text.includes('1ターン1回'))a.counts.skill=1;this.change();let target=null;if(['システムダウン'].includes(k.name))target=this.gun(1-p,'技能の対象機銃',g=>g.up,p);if(this.name(p)==='マカ'){const gi=this.gun(p,'今後、射撃・ドローを制限する機銃');a.flags.maka=gi;this.check();}
+  const x={p,kind:'skill',skillName:k.name,hit:({'朧走り':burst?5:3,'閃光花火':Math.max(0,v-3),'Seve[N] Star':7,'鬼火':3,'ぱーんち!!':8,'いただきまーす!!':2}[k.name]||0),cancel:false,jammed:false};this.log(this.name(p)+' 技能「'+k.name+'」');if(k.name==='焔送り')x.hit=against.hit*(burst?2:1);this.respond(x);if(this.s.winner!==null||x.cancel)return;if(x.jammed){this.hit(1-p,x.hit,p,'skill');return;}
+  const reset=()=>{a.skillUp=false;this.change();};switch(k.name){
+   case'朧走り':this.hit(1-p,x.hit,p,'skill');reset();break;
+   case'閃光花火':case'Seve[N] Star':this.hit(1-p,x.hit,p,'skill');break;
+   case'影潜み':b.temp.nullified=true;b.temp.noResponse=true;a.temp.shotBuff=(a.temp.shotBuff||0)+2;break;
+   case'グッドメディスン':if(this.ask(p,k.name,[{value:'heal',label:'4回復'},{value:'return',label:'捨て札4枚を山札へ'}])==='heal')this.heal(p,4);else this.returnDiscard(p,4);reset();break;
+   case'ジャストアイディア':this.recover(p,burst?4:3);break;
+   case'バッドメディスン':a.flags.bad=true;break;
+   case'がんばる!!':b.flags.noSkillNext=true;a.flags.ganbaru=true;break;
+   case'いただきまーす!!':if(this.ask(p,k.name,[{value:'hit',label:'2HIT＋2回復'},{value:'return',label:'捨て札6枚を山札へ'}])==='hit'){this.hit(1-p,x.hit,p,'skill');if(this.s.winner===null)this.heal(p,2);}else this.returnDiscard(p,6);reset();break;
+   case'ぱーんち!!':this.hit(1-p,x.hit,p,'skill');b.flags.skip=(b.flags.skip||0)+1;break;
+   case'ドーピング':a.temp.nextShot=5;break;
+   case'マキシマムリロード':{const gi=this.gun(p);this.optionalDeckLoad(p,6,gi);if(burst&&this.canFire(p,gi)&&this.ask(p,'続けて射撃？',[{value:true,label:'射撃する'},{value:false,label:'射撃しない'}]))this.fire(p,gi,true);break;}
+   case'バレットキャッチ':a.flags.catch=true;break;
+   case'鬼火':this.hit(1-p,x.hit,p,'skill');if(this.s.winner===null)this.returnDiscard(p,4);reset();break;
+   case'焔送り':this.hit(1-p,x.hit,p,'skill');against.hit=0;break;
+   case'陽炎':against.cancel=true;if(against.kind==='skill'){this.player(1-p).skillUp=false;}this.forcedEnd=true;break;
+   case'サヨナラは言わないで':a.flags.sayonara=true;break;
+   case'キミのためなら死ねる':a.flags.makaGuard=true;break;
+   case'すべてをキミに':a.flags.makaLoad=true;break;
+   case'Sou[N]d Crack':this.draw(p,4);a.temp.rapid=true;break;
+   case'Rock[N] Roll':a.flags.rock=true;break;
+   case'遊天演武':{const cs=this.pick(p,'装填する銃弾',a.discard.filter(c=>this.card(c).type==='銃弾'),0,3),gi=this.gun(p);for(const c of cs){const face=this.ask(p,c.name+'の表裏',[{value:true,label:'表向き'},{value:false,label:'裏向き'}]);if(this.load(p,c,face,gi))this.remove(a.discard,[c]);}reset();break;}
+   case'華神楽':{const pool=a.discard.filter(c=>['行動','機能'].includes(this.card(c).type));let picked=[];for(let i=0;i<2;i++){const cs=this.pick(p,'回収する行動・機能（名前は別々）',pool.filter(c=>!picked.includes(c.name)),0,1);if(!cs.length)break;this.remove(a.discard,cs);a.hand.push(cs[0]);picked.push(cs[0].name);}reset();break;}
+   case'月鏡ノ舞':{const cs=this.pick(p,'セットする対応',a.discard.filter(c=>this.card(c).type==='対応'),0,2);this.remove(a.discard,cs);a.responses.push(...cs);reset();break;}
+   case'『OMOIDE IN MY SHOT』':{const hand=this.ask(p,k.name,[{value:false,label:'山札上から2枚まで裏向き装填'},{value:true,label:'手札から2枚まで装填'}]),gi=this.gun(p);if(hand){const cs=this.pick(p,'装填する手札',a.hand,0,2);for(const c of cs){const face=this.card(c).type==='銃弾'?this.ask(p,c.name,[{value:true,label:'表向き'},{value:false,label:'裏向き'}]):false;if(this.load(p,c,face,gi))this.remove(a.hand,[c]);}}else this.optionalDeckLoad(p,2,gi);reset();break;}
+   case'『HATE EATER』':a.flags.hate=true;break;
+   case'『亡命少女』':a.flags.exile=true;break;
+   case'ブレインハック':{const di=this.deckFor(p,1-p),cs=b.decks[di].splice(0,2),chosen=this.pick(p,'発動する相手の行動',cs.filter(c=>this.card(c).type==='行動'&&this.extraAvailable(p,c.name)&&!(this.card(c).text.includes('同名1ターン1枚')&&a.counts[c.name])&&!(c.name==='ブリッツ'&&a.flags.blitz)&&!(c.name==='オーバーヒート'&&a.turns===1)&&!(c.name.startsWith('強行：')&&a.counts.limitAction&&!a.temp.unlimit)),0,1);this.trash(1-p,cs.filter(c=>!chosen.includes(c)));if(chosen.length){a.counts[chosen[0].name]=1;if(chosen[0].name.startsWith('強行：'))a.counts.limitAction=1;this.effect(p,chosen[0].name);this.trash(1-p,chosen);}reset();break;}
+   case'システムダウン':if(target!==null){b.guns[target].up=false;this.change();this.check();}break;
+   case'リバースコマンド':{const val=b.voltage.length,mode=this.ask(p,k.name,[{value:'hit',label:val+'HIT'},{value:'heal',label:val+'回復'},{value:'mill',label:'相手の山札を'+val+'枚破棄'}]);if(mode==='hit')this.hit(1-p,val,p,'skill');if(mode==='heal')this.heal(p,val);if(mode==='mill')this.mill(1-p,val,p);break;}
+   case'一贋裂符【抜】':a.flags.rightPower=true;break;
+   case'一紫纏電【縫】':a.flags.sew=true;break;
+   case'紫電一閃【薙】':a.flags.leftQuiet=true;break;
+   case'Trick the cat':a.flags.trick=true;break;
+   case"Patchin' In":a.flags.patch=true;break;
+   case'Bolt from the blue':a.flags.bolt=true;break;
+   default:throw new Error('技能未登録：'+k.name);
+  }
+ }
+ extraAvailable(p,n){const a=this.player(p),oc=this.ocName(n);if(oc&&!a.guns.some(g=>g.up&&g.def.name===oc))return false;const ex={'轟雷砲':['ヌエ',6],'ヘッドショット':['ダタラ',4],'亜空光線':['ウワン',3],'過焔地獄':['キヨヒメ',5]}[n];return !ex||a.guns.some(g=>g.up&&g.def.name===ex[0]&&this.ammoCount(g)>=ex[1]);}
+ ability(p){const a=this.player(p);a.counts.ability=1;switch(this.name(p)){case'ヒバナ':{for(let j=0;j<2;j++){const mode=this.ask(p,'ボルテージへ置く（あと'+(2-j)+'枚）',[{value:'deck',label:'山札の上から'},{value:'discard',label:'捨て札から'},{value:'stop',label:'終了'}]);if(mode==='stop')break;if(mode==='deck')this.toVoltage(p,1);else{const cs=this.pick(p,'捨て札から選択',a.discard,0,1);this.remove(a.discard,cs);a.voltage.push(...cs);}}break;}case'テトラ':{const cs=this.pick(p,'交換する手札',a.hand,0,2);this.trash(p,cs,a.hand);this.draw(p,cs.length,false,null,'char');break;}case'ウノ':{const gi=this.gun(p,'装填する機銃（このターン射撃不可）',g=>!g.fired);if(gi===null)break;a.guns[gi].blocked=true;if(a.temp.noEffectLoad)break;for(let j=0;j<2;j++){const c=a.decks[gi].shift();if(!c)break;let face=this.card(c).type==='銃弾'?this.ask(p,c.name,[{value:true,label:'表向き'},{value:false,label:'裏向き'}]):false;if(!this.load(p,c,face,gi))this.trash(p,[c]);this.check();}break;}}}
+ toVoltage(p,n,di=null){if(n<=0)return;const a=this.player(p);di??=this.deck(p,false);const cs=a.decks[di].splice(0,n);a.voltage.push(...cs);if(cs.length)this.change();this.check();}
+ recover(p,n,pred=()=>true){const a=this.player(p),pool=a.discard.filter(pred),cs=this.pick(p,'手札へ回収',pool,Math.min(n,pool.length),n);this.remove(a.discard,cs);a.hand.push(...cs);}
+ returnDiscard(p,n,pred=()=>true,optional=false){const a=this.player(p),pool=a.discard.filter(pred),cs=this.pick(p,'山札へ戻す捨て札',pool,optional?0:Math.min(n,pool.length),n);this.remove(a.discard,cs);this.recycle(p,cs);}
+ trashAmmo(p,cs){for(const g of this.player(p).guns)this.remove(g.ammo,cs);this.trash(p,cs);}
+ destroy(chooser,p,n,breakOnly=false){const a=this.player(p),pool=[...a.responses,...a.guns.flatMap(g=>g.ammo),...(breakOnly?a.voltage:[]),...a.functions.filter(c=>!breakOnly||this.card(c).cost<=1)];const cs=this.pick(chooser,'破棄する相手のカード',pool,breakOnly?0:Math.min(n,pool.length),n);for(const z of [a.responses,a.voltage,a.functions,...a.guns.map(g=>g.ammo)])this.remove(z,cs.filter(c=>c.name!=='モード：ファランクス'));this.trash(p,cs.filter(c=>c.name!=='モード：ファランクス'));}
+ onFunction(p,c){const oc=this.ocName(c.name);if(oc)this.oc(p,oc);}
+ effect(p,n){const a=this.player(p),b=this.player(1-p);const draw=x=>this.draw(p,x),hit=x=>this.hit(1-p,x,p),heal=x=>this.heal(p,x);const ex={'轟雷砲':['ヌエ',6],'ヘッドショット':['ダタラ',4],'亜空光線':['ウワン',3],'過焔地獄':['キヨヒメ',5]}[n];if(ex){const g=a.guns.find(g=>g.up&&g.def.name===ex[0]&&this.ammoCount(g)>=ex[1]);if(!g)return;this.trashAmmo(p,[...g.ammo]);}
+ switch(n){
+ case'オーバーブースト':draw(5);break;case'計略':draw(3);break;case'突貫':draw(2);this.hit(p,1,p);break;
+ case'リサイクル':{const cs=this.pick(p,'戻す捨て札',a.discard,0,1);if(cs.length){this.remove(a.discard,cs);if(this.card(cs[0]).type==='銃弾')a.hand.push(cs[0]);else{const c=cs[0],di=a.guns.findIndex(g=>g.id===c.origin);a.decks[di].unshift(c);}}break;}
+ case'クールダウン':{const cs=this.pick(p,'手札に戻すボルテージ',a.voltage,0,1);this.remove(a.voltage,cs);a.hand.push(...cs);break;}
+ case'高速充電':this.deckLoad(p,1);draw(1);break;
+ case'銃弾生成':{const cs=this.pick(p,'表向き装填する銃弾',a.discard.filter(c=>this.card(c).type==='銃弾'),0,1);if(cs.length&&this.load(p,cs[0],true))this.remove(a.discard,cs);break;}
+ case'轟雷砲':for(const z of [b.hand,b.responses,b.functions,...b.guns.map(g=>g.ammo)])this.trash(1-p,[...z].filter(c=>c.name!=='モード：ファランクス'),z);break;
+ case'スモーク':a.flags.smokeUntil=this.s.turn+(this.s.active===p?1:0);a.temp.zeroHit=true;break;
+ case'チャフ':{const cs=this.pick(1-p,'手札・ボルテージから計2枚捨てる',[...b.hand,...b.voltage],Math.min(2,b.hand.length+b.voltage.length),2);this.remove(b.hand,cs);this.remove(b.voltage,cs);this.trash(1-p,cs);break;}
+ case'スナイプ':a.temp.snipe=(a.temp.snipe||0)+1;break;
+ case'バレットブレイク':{const cs=this.pick(p,'破棄する相手の装填',b.guns.flatMap(g=>g.ammo),1,1);this.trashAmmo(1-p,cs);break;}
+ case'ヘッドショット':this.trash(1-p,[...b.hand],b.hand);this.trash(1-p,[...b.voltage],b.voltage);break;
+ case'起死回生':hit(a.life<=5?5:3);break;
+ case'発破':{const cs=this.pick(p,'破棄するセット対応',b.responses,1,1);this.trash(1-p,cs,b.responses);break;}
+ case'気迫':if(a.life<=15){this.recover(p,2,c=>c.name!=='気迫');const cs=this.pick(p,'裏向き装填する捨て札',a.discard,0,1);if(cs.length&&this.load(p,cs[0],false))this.remove(a.discard,cs);}break;
+ case'叩き付け':this.hit(p,1,p);{const gi=this.gun(1-p,'次のターン射撃禁止にする機銃',()=>true,p);b.flags['blockNext'+gi]=true;}break;
+ case'不撓不屈':if(a.life<=10)a.flags.protectUntil=this.s.turn+2;break;
+ case'ディバージョン':draw(a.functions.length+1);break;
+ case'撹乱光線':this.discardHand(1-p,2);this.draw(1-p,1);break;
+ case'爆砕光線':case'破壊工作':this.destroy(p,1-p,2);break;
+ case'亜空光線':this.mill(1-p,5,p);draw(5);break;
+ case'リユース':this.returnDiscard(p,5,c=>c.name!=='リユース');break;
+ case'バラージ':b.temp.nullified=true;break;
+ case'オーバーヒート':draw(10);a.temp.noDraw=true;break;
+ case'ブリッツ':if(!a.flags.blitz){a.flags.blitz=true;a.flags.extraTurn=(a.flags.extraTurn||0)+1;}break;
+ case'ヒートアップ':this.toVoltage(p,1);if(a.char.speed<=b.char.speed)this.toVoltage(p,1);if(a.char.hand<=b.char.hand)draw(1);break;
+ case'過焔地獄':b.burn+=4;this.change();break;
+ case'レベリング':this.discardHand(1-p,Math.max(0,b.hand.length-3));break;
+ case'アクティベイト':{const sizes=[];for(let di=0;di<2;di++){const before=a.hand.length;this.draw(p,1,false,di,'group');sizes.push(a.hand.length-before);}if(sizes.some(Boolean))for(let j=0;j<this.functions(1-p,'反応機構');j++)this.trigger(1-p,'反応機構','hit',p,2);break;}
+ case'スクランブル':{const who=this.ask(p,'手札を交換するプレイヤー',[{value:p,label:'自分'},{value:1-p,label:'相手'}]),di=this.deckFor(p,who),o=this.player(who),cs=[...o.hand];this.remove(o.hand,cs);this.recycle(who,cs);this.draw(who,cs.length,false,di);draw(1);break;}
+ case'強行：打':hit(3);break;case'強行：迅':draw(2);break;
+ case'強行：再':{let names=[],cs=[];for(let j=0;j<4;j++){let sel=this.pick(p,'山札の下へ戻す（同名不可）',a.discard.filter(c=>c.name!==n&&!names.includes(c.name)),0,1);if(!sel.length)break;cs.push(sel[0]);names.push(sel[0].name);}this.remove(a.discard,cs);this.recycle(p,this.shuffle(cs),true);draw(1);break;}
+ case'凶強：解':this.oc(p,'ヒカギリ');if(this.s.winner===null){draw(2);a.temp.unlimit=true;}break;
+ case'装填変更':{if(a.temp.noEffectLoad)break;const gi=this.gun(p,'移動元の機銃',g=>g.ammo.length>0);if(gi===null)break;const cs=this.pick(p,'移動する装填',a.guns[gi].ammo,0,3);for(const c of cs)if(this.load(p,c,c.face,1-gi))this.remove(a.guns[gi].ammo,[c]);break;}
+ case'一気討殲':{const g=this.oc(p,'ロクロ');if(this.s.winner!==null)break;const x=g.ammo.length;hit(x);const pool=[...b.voltage,...b.responses,...b.functions,...b.guns.flatMap(g=>g.ammo)],cs=this.pick(p,'破棄する相手の場・ボルテージ',pool,0,x);for(const z of [b.voltage,b.responses,b.functions,...b.guns.map(g=>g.ammo)])this.remove(z,cs);this.trash(1-p,cs);this.randomDiscard(1-p,Math.max(0,x-cs.length));break;}
+ case'アルマゲドン':this.oc(p,'ダイダラ');if(this.s.winner!==null)break;b.flags.noFireNext=true;{const cs=this.pick(p,'破棄するボルテージの銃弾',a.voltage.filter(c=>this.card(c).type==='銃弾'),0,a.voltage.length);this.trash(p,cs,a.voltage);hit(cs.length*2);}break;
+ case'ファストリロード':draw(3);{const cs=this.pick(p,'追加で装填する手札',a.hand,0,1);if(cs.length){const face=this.card(cs[0]).type==='銃弾'?this.ask(p,'表裏',[{value:true,label:'表向き'},{value:false,label:'裏向き'}]):false;if(this.load(p,cs[0],face))this.remove(a.hand,cs);}}break;
+ case'リカバリー':{const cs=this.pick(p,'回復に使うボルテージ',a.voltage,0,a.voltage.length);this.trash(p,cs,a.voltage);heal(cs.length);break;}
+ case'熟慮':draw(3);{const action=a.hand.filter(c=>this.card(c).type==='行動'),other=a.hand.filter(c=>this.card(c).type!=='行動');const mode=this.ask(p,'捨て方を選択',[...(other.length?[{value:'other',label:'行動以外を1枚'}]:[]),...(action.length>=2?[{value:'action',label:'行動を2枚'}]:[])]);const pool=mode==='action'?action:other,cs=this.pick(p,'捨てるカード',pool,mode==='action'?2:1,mode==='action'?2:1);this.trash(p,cs,a.hand);}break;
+ case'相殺':for(let who=0;who<2;who++)for(const g of this.player(who).guns){const cs=this.pick(who,'破棄する装填',g.ammo,Math.min(1,g.ammo.length),1);this.trashAmmo(who,cs);}break;
+ case'鎮圧':for(let who=0;who<2;who++){const o=this.player(who),cs=this.pick(who,'破棄するボルテージ',o.voltage,Math.min(3,o.voltage.length),3);this.trash(who,cs,o.voltage);}break;
+ case'回帰':a.temp.returnAction=true;break;
+ case'忘却':draw(1);{const di=this.deckFor(p,1-p),cs=[...b.hand];this.remove(b.hand,cs);this.recycle(1-p,this.shuffle(cs),true);this.draw(1-p,cs.length,false,di);}break;
+ case'現喰い':this.oc(p,'バク');if(this.s.winner===null)this.trash(1-p,[...b.hand],b.hand);break;
+ case'アレグロ・ノイズ':{const cs=this.pick(p,'破棄する相手ボルテージ',b.voltage,0,2);this.trash(1-p,cs,b.voltage);break;}
+ case'クレッシェンド・ムーブ':draw(Math.min(3,Math.floor(b.discard.length/3)));break;
+ case'ア・テンポ':for(let who=0;who<2;who++){const o=this.player(who),cs=this.pick(p,'手札に戻す'+this.name(who)+'の装填',o.guns.flatMap(g=>g.ammo),0,1);for(const g of o.guns)this.remove(g.ammo,cs);o.hand.push(...cs);}break;
+ case'ダブル・シャウト':this.randomDiscard(1-p,(b.char.speed>=a.char.speed?1:0)+(b.char.hand>=a.char.hand?1:0));break;
+ case'黒の躍動':this.toVoltage(p,2);break;
+ case'白虹貫日':this.oc(p,'ミツメ');if(this.s.winner!==null)break;{const k=a.char.skills[a.skill],v=k.v==='X'?0:k.v;this.log('公開技能：'+k.name);this.toVoltage(p,Math.max(0,v-a.voltage.length));a.skillUp=false;}break;
+ case'翠の還元':{const cs=[...a.voltage];this.remove(a.voltage,cs);this.recycle(p,cs);break;}
+ case'蒼の反転':draw(2);if(a.life<=15)this.toVoltage(p,2);break;
+ case'パルス・ドロー':draw(b.shock>=3?3:2);break;
+ case'パルス・サボタージュ':this.trashAmmo(1-p,b.guns.flatMap(g=>g.ammo).filter(c=>c.face&&this.card(c).type==='銃弾'));break;
+ case'シャット・ダウン':this.oc(p,'ヒダル');if(this.s.winner===null&&b.shock>=3){b.shock-=3;const gi=this.gun(1-p,'裏返す機銃',g=>g.up,p);if(gi!==null)b.guns[gi].up=false;this.change();this.check();}break;
+ default:throw new Error('行動未登録：'+n);
+ }
+ }
+ beginTurn(){const p=this.s.active,a=this.player(p);this.s.turn++;a.turns++;a.counts={};for(const g of a.guns){g.loaded=0;g.fired=0;g.blocked=!!a.flags['blockNext'+a.guns.indexOf(g)];delete a.flags['blockNext'+a.guns.indexOf(g)];}
+  for(const [src,dst] of [['noSkillNext','noSkill'],['noActionNext','noAction'],['noFireNext','noFire'],['noBasicLoadNext','noBasicLoad'],['noEffectLoadNext','noEffectLoad'],['poisonNext','poison']]){if(a.flags[src]!==undefined){a.temp[dst]=a.flags[src];delete a.flags[src];}}
+  this.log('第'+this.s.turn+'ターン：'+this.name(p));this.s.phase='battle';
+  // Burn rule HITs finish before triggered character effects.
+  let natri=0;for(let i=0;i<a.burn;i++){if(a.temp.zeroHit)continue;if(a.flags.makaGuard&&this.enabled(p)&&a.voltage.length>=3&&this.ask(p,'バーンをV3枚破棄に置換？',[{value:true,label:'置換する'},{value:false,label:'3HIT'}])){this.payV(p,3);continue;}a.life=Math.max(0,a.life-3);this.change();natri++;this.log(this.name(p)+' バーン3HIT');this.check();if(this.s.winner!==null)return;}
+  for(let i=0;i<natri;i++){if(this.name(p)==='ナトリ'&&this.enabled(p))this.trigger(p,'ナトリ','hit',1-p,1);for(let j=0;j<this.functions(1-p,'吸熱機構');j++)this.trigger(1-p,'吸熱機構','heal',1-p,1);}
+  this.drain();let tasks=[];if(a.flags.bad&&this.enabled(p))tasks.push({name:'バッドメディスン',type:'bad'});if(a.flags.exile&&this.enabled(p))tasks.push({name:'亡命少女',type:'exile'});if(this.enabled(p))for(const c of a.functions)if(['オート・カノン','過負荷光球','ハイ・メトロノーム','メンテナンスコア'].includes(c.name)||c.name==='PS/Negative'&&this.player(1-p).shock<=3)tasks.push({name:c.name,type:'function',uid:c.uid});this.tasks(p,tasks,'開始時');
+ }
+ tasks(p,tasks,phase){const a=this.player(p);while(tasks.length&&this.s.winner===null){this.drain();let i=tasks.length===1?0:this.ask(p,phase+'効果の処理順',tasks.map((t,i)=>({value:i,label:t.name})));const t=tasks.splice(i,1)[0];if(t.type==='bad'){const who=this.ask(p,'捨てる山札の持ち主',[{value:p,label:'自分'},{value:1-p,label:'相手'}]);this.mill(who,4,p);if(this.s.winner===null)this.lose(1-p,4);continue;}if(t.type==='exile'){this.hit(1-p,10,p);continue;}const c=a.functions.find(c=>c.uid===t.uid);if(t.type==='function'&&!c)continue;
+  if(phase==='開始時'){switch(t.name){case'オート・カノン':this.hit(1-p,5,p);break;case'過負荷光球':this.mill(1-p,1,p);break;case'メンテナンスコア':this.trash(p,[c],a.functions);this.heal(p,5);break;case'PS/Negative':if(this.ask(p,'PS/Negativeを捨ててショック付与？',[{value:true,label:'付与する'},{value:false,label:'残す'}])){this.trash(p,[c],a.functions);this.player(1-p).shock++;this.change();}break;case'ハイ・メトロノーム':for(let who of [this.s.active,1-this.s.active]){const di=this.deckFor(p,who);this.discardHand(who,2);this.draw(who,2,false,di);}break;}continue;}
+  switch(t.name){case'ラン':for(let gi=0;gi<2;gi++)this.optionalDeckLoad(p,1,gi);break;case'アマタ':{const n=this.ask(p,'アマタの自傷ドロー',[0,1,2]);this.hit(p,n,p);if(this.s.winner===null)this.draw(p,a.temp.zeroHit?0:n,false,null,'char');break;}case'エコ':this.heal(p,2,'char');break;case'がんばる!!':this.heal(p,4);break;case'HATE EATER':this.heal(p,3);break;case'サヨナラは言わないで':this.lose(1-p,Math.floor(a.voltage.length/2));if(this.s.winner===null)this.trash(p,this.pick(p,'捨てるボルテージ',a.voltage,Math.min(3,a.voltage.length),3),a.voltage);break;case'すべてをキミに':{const cs=this.pick(p,'装填するボルテージ',a.voltage,0,a.life<=15?3:2),gi=this.gun(p);for(const c of cs)if(this.load(p,c,false,gi))this.remove(a.voltage,[c]);break;}case'ヌエ':this.optionalDeckLoad(p,1,t.gi);break;case'カシャ':this.optionalDeckLoad(p,1,t.gi,true);break;case'コダマ':{const x=a.guns[t.gi].ammo.length;this.hit(p,x,p);if(this.s.winner===null){this.mill(1-p,x,p);this.toVoltage(p,x);}break;}
+   case'蓄電装置':case'リロード・サポーター':this.optionalDeckLoad(p,1);break;case'ラッキーセット':this.optionalDeckLoad(p,1,null,true);break;case'ブーストセット':{const gi=this.gun(p);this.optionalDeckLoad(p,3,gi,true);break;}case'ヒーリング・チューブ':this.heal(p,1);break;
+   case'スタビライザー':{const pool=[...a.hand,...a.discard].filter(c=>this.card(c).type==='銃弾'),cs=this.pick(p,'装填する銃弾',pool,0,1);if(cs.length){const face=this.ask(p,'表裏',[{value:true,label:'表向き'},{value:false,label:'裏向き'}]);if(this.load(p,cs[0],face)){this.remove(a.hand,cs);this.remove(a.discard,cs);}}break;}
+   case'チェーンリローダー':{const di=this.deck(p),cs=a.decks[di].splice(0,2);let used=null;if(!a.temp.noEffectLoad&&cs.length){const pick=this.pick(p,'装填する公開カード',cs,0,1);if(pick.length){const c=pick[0],face=this.card(c).type==='銃弾'?this.ask(p,'表裏',[{value:true,label:'表向き'},{value:false,label:'裏向き'}]):false;if(this.load(p,c,face))used=c;}}a.hand.push(...cs.filter(c=>c!==used));this.check();break;}
+   case'モード：ファランクス':this.hit(1-p,5,p);if(this.s.winner===null)this.mill(p,5,p);break;
+   case'ドレッド・アンプ':{const targets=this.ask(p,'ボルテージを増やすプレイヤー',[{value:p,label:'自分'},{value:1-p,label:'相手'}],{min:0,max:2});for(const who of targets)for(let di=0;di<2;di++)this.toVoltage(who,1,di);break;}
+   case'回帰':case'回収機構':this.recover(p,1,t.name==='回帰'?c=>this.card(c).type==='行動':()=>true);break;
+  }
+ }this.drain();}
+ optionalDeckLoad(p,n,gi=null,face=false){if(this.player(p).temp.noEffectLoad)return;const x=this.ask(p,'装填枚数（最大'+n+'枚）',Array.from({length:n+1},(_,i)=>({value:i,label:i+'枚'})));if(x)this.deckLoad(p,x,gi,face);}
+ endTurn(){const p=this.s.active,a=this.player(p),b=this.player(1-p),before=this.turnStartMoves??0;if(!this.forcedEnd){this.draw(p,Math.max(0,a.char.hand-a.hand.length),true);let ts=[];if(this.enabled(p)&&['ラン','アマタ','エコ'].includes(this.name(p)))ts.push({name:this.name(p)});for(const [flag,name]of [['ganbaru','がんばる!!'],['hate','HATE EATER'],['sayonara','サヨナラは言わないで'],['makaLoad','すべてをキミに']])if(a.flags[flag]&&this.enabled(p))ts.push({name});if(this.enabled(p)){for(let gi=0;gi<2;gi++){const g=a.guns[gi];if(g.up&&(g.def.name==='コダマ'||g.def.name==='カシャ'||g.def.name==='ヌエ'&&a.life<b.life))ts.push({name:g.def.name,gi});}for(const c of a.functions)if(['蓄電装置','リロード・サポーター','ヒーリング・チューブ','スタビライザー','チェーンリローダー','モード：ファランクス','ドレッド・アンプ','ラッキーセット','ブーストセット'].includes(c.name))ts.push({name:c.name,type:'function',uid:c.uid});}if(a.temp.returnAction)ts.push({name:'回帰'});for(let i=0;i<(a.temp.recover||0);i++)ts.push({name:'回収機構'});this.tasks(p,ts,'終了時');for(let i=0;i<this.functions(1-p,'リチャージャー');i++)this.draw(1-p,Math.max(0,5-b.hand.length));if(a.shock>=5&&!(a.flags.protectUntil>=this.s.turn)){this.s.winner=1-p;this.log('ショック5個以上で敗北');}}
+  this.drain();if(this.s.winner!==null)return;this.forcedEnd=false;for(const o of this.s.players){if(o.flags.protectUntil===this.s.turn)delete o.flags.protectUntil;if(o.flags.smokeUntil===this.s.turn)delete o.flags.smokeUntil;o.temp={};if(o.flags.smokeUntil>=this.s.turn+1)o.temp.zeroHit=true;}this.check();if(this.s.winner!==null)return;
+  this.s.quiet=this.moves===before?this.s.quiet+1:0;if(this.s.quiet>=5){this.s.winner='draw';this.log('5ターン進展なし：引き分け');return;}
+  if(a.flags.extraTurn){a.flags.extraTurn--;}else{this.s.active=1-p;if(b.flags.skip){b.flags.skip--;this.s.active=p;this.log(this.name(1-p)+'のターンをスキップ');}}
+  this.turnStartMoves=this.moves;this.beginTurn();}
+}
+export function replay(config,events=[]){const g=new Game(config,events);g.run();if(g.cursor!==events.length)throw new Invalid('余分な操作があります');return g;}
+export function view(g,seat){const s=clone(g.s);s.seat=seat;s.config={block:g.config.block,draft:g.config.draft,cpu:g.config.cpu};if(s.pending&&s.pending.p!==seat)s.pending={p:s.pending.p,title:s.phase==='selection'?'相手が編成を選択中':'相手が効果を選択中',options:[],key:null};
+ if(s.draft){s.draft.lineups=s.draft.lineups.map(l=>({char:l.char,guns:l.guns}));}
+ s.players=s.players.map((a,p)=>{a.deckCounts=a.decks.map(d=>d.length);delete a.decks;if(p!==seat){a.handCount=a.hand.length;a.hand=[];a.skill=p===seat||a.skillUp?a.skill:null;a.responses=a.responses.map(c=>({uid:c.uid,name:'セット対応',face:false}));a.voltage=a.voltage.map(c=>({uid:c.uid,name:'ボルテージ',face:false}));a.guns.forEach(g=>g.ammo=g.ammo.map(c=>c.face?c:{uid:c.uid,name:'通常弾',face:false}));}return a;});return s;}
