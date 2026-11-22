@@ -2,3 +2,295 @@
 @media(min-width:1500px){.player{padding-top:17px;padding-bottom:17px}.hand{min-height:220px}.card{height:210px;width:164px;min-width:164px}}
 @media(max-width:900px){.lobby{gap:30px;grid-template-columns:1fr 380px}.player-meta{gap:12px;grid-template-columns:1fr auto auto}.skill{grid-column:1/-1;min-height:0;padding:4px 9px;flex-wrap:nowrap}.skill small{width:auto}.field{grid-template-columns:80px 1fr 90px;gap:9px}.guns{gap:9px}.conditions{gap:4px}.gun{padding:6px 8px}.selection-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:600px){header{height:65px;padding:10px 14px}.brand{font-size:18px;gap:8px}.brand small{font-size:9px}.sigil{width:31px;height:33px;font-size:24px;line-height:29px}nav button{font-size:12px;padding:6px 8px}#app{padding:12px 10px 22px}.lobby{grid-template-columns:1fr;gap:28px;min-height:0;max-width:440px;margin:20px auto}.lobby h1{font-size:38px;margin:10px 0}.lobby-title>p{font-size:15px}.edition{margin-top:15px;font-size:10px;max-width:none}.setup-panel{padding:21px}.start-notes{margin-top:30px;font-size:13px}.table-toolbar{align-items:flex-start;font-size:11px}.table-toolbar>div{flex-wrap:wrap;justify-content:flex-end;max-width:65%;gap:5px}.table-toolbar button{font-size:11px}.player{padding:8px}.player.active{padding-left:5px}.player-meta{gap:7px;margin-bottom:7px}.nameplate{gap:4px}.nameplate b{font-size:19px}.nameplate>span{font-size:10px}.nameplate small{font-size:9px}.life b{font-size:30px}.life small{font-size:9px}.life{gap:4px}.conditions{flex-direction:column;font-size:9px;gap:2px}.conditions>span{padding:1px 4px}.skill b{font-size:12px}.skill small{font-size:10px}.skill>span{font-size:12px}.field{grid-template-columns:1fr;gap:6px}.decks{flex-direction:row;grid-row:2;gap:6px}.deck{flex:1;min-height:34px;padding:3px 7px;flex-wrap:nowrap;gap:7px}.deck>span{font-size:10px;width:auto}.deck b{font-size:16px}.deck small{font-size:9px}.guns{grid-row:1;gap:6px}.gun{padding:5px 7px}.gun-head{font-size:9px}.gun-title{font-size:20px}.ammo-meter{gap:3px;margin:2px 0}.ammo-meter i{height:8px}.ammo-meter b{font-size:11px}.ammo-list{max-height:40px;overflow:auto;min-height:18px;font-size:10px}.ammo-list button{font-size:9px}.gun-footer{font-size:9px}.zones{display:flex;grid-row:3;align-items:center;gap:5px}.zone{flex:1;flex-direction:row;gap:7px;padding:2px 5px}.zone span{font-size:10px}.zone b{font-size:13px}.handcount{font-size:10px;white-space:nowrap}.middle-line{min-height:26px;font-size:10px;padding:0 10px}.middle-line>span+span{font-size:8px}.hand-zone{margin-top:9px}.hand-label{font-size:12px;margin-bottom:4px}.hand{min-height:174px;gap:7px}.card{width:137px;min-width:137px;height:166px;padding:8px}.card>strong{font-size:13px;margin:5px 0}.card p{font-size:10px;-webkit-line-clamp:3}.card-symbol{font-size:23px;margin-bottom:5px}.card-top{font-size:10px}.decision{padding:10px;margin-top:4px}.action-bar{gap:5px}.action-bar button{font-size:12px;padding:8px}.end-turn{margin-left:0}.card-dock{flex-direction:column;gap:7px;align-items:stretch}.card-dock p{font-size:12px}.dock-actions{min-width:0;justify-content:flex-start}.dock-actions button{font-size:12px}.decision-heading{flex-wrap:wrap;font-size:14px}.choices{max-height:290px}.choice{font-size:14px;padding:9px 12px}.selection{margin:10px auto}.selection-heading h1{font-size:24px}.selection-grid{gap:8px}.selection-grid .choice{padding:13px;min-height:150px}.selection-grid strong{font-size:18px}.selection-grid small{font-size:11px}.selection-grid p{font-size:12px}.choice-mark{font-size:26px;margin-bottom:5px}.backdrop{padding:12px}.modal{padding:18px;max-height:94dvh}.modal-head h2{font-size:20px}.draft-lineups{gap:8px}.draft-lineups p{font-size:12px}.function-row button{font-size:10px}}
+
+/* Compact duel table: the page stays still; larger lists use explicit pages. */
+.emblem{display:block;width:48px;height:48px;flex:none;color:var(--emblem-color)}
+.emblem-bg{fill:currentColor;fill-opacity:.09;stroke:currentColor;stroke-opacity:.32;stroke-width:1}
+.choice-mark .emblem{width:52px;height:52px}
+.character-emblem{background:none;border:0;padding:0;border-radius:9px}
+.character-emblem:hover:not(:disabled){background:#ffffff09}
+.identity-heading{display:flex;align-items:center;gap:18px;margin:8px 0 20px}
+.identity-heading .emblem{width:80px;height:80px}
+.gun-title{display:flex;align-items:center;gap:8px}
+.gun-title .emblem{width:32px;height:32px}
+.pager{display:flex;align-items:center;gap:7px;margin-left:auto;flex-shrink:0}
+.pager span{font:12px ui-monospace,monospace;white-space:nowrap;color:var(--muted)}
+.pager button{font-size:13px;padding:4px 10px;min-height:30px;line-height:1.3}
+.expanded-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.expanded-choices .choice{font-size:15px;padding:14px}
+.choice-footer{display:flex;align-items:center;gap:10px;margin-top:9px;font-size:13px;flex-shrink:0}
+.choice-footer>[data-action=confirm]{margin-left:auto}
+body.battle-mode{height:100vh;height:100dvh;overflow:hidden;display:grid;grid-template-rows:48px minmax(0,1fr);overscroll-behavior:none}
+.battle-mode header{height:48px;padding:5px 18px;min-height:0}
+.battle-mode .brand{font-size:18px;gap:8px}
+.battle-mode .brand small{display:none}
+.battle-mode .sigil{width:30px;height:32px;font-size:25px;line-height:28px}
+.battle-mode nav button{font-size:13px;padding:4px 10px;min-height:32px}
+.battle-mode #app{display:grid;grid-template-rows:28px minmax(0,1fr) clamp(96px,17dvh,148px) clamp(160px,23dvh,206px);gap:7px;padding:6px 14px max(8px,env(safe-area-inset-bottom));width:100%;height:100%;max-width:1600px;min-height:0;overflow:hidden}
+.battle-mode .table-toolbar{margin:0;min-width:0;font-size:13px;min-height:0}
+.battle-mode .table-toolbar>div{gap:7px;max-width:none}
+.battle-mode .table-toolbar button{padding:3px 9px;min-height:26px;line-height:1.2;font-size:12px}
+.battle-mode .duel{display:grid;grid-template-rows:minmax(0,1fr) 22px minmax(0,1fr);min-height:0}
+.battle-mode .player{display:grid;grid-template-rows:45px minmax(0,1fr);padding:7px 12px;min-height:0;overflow:hidden}
+.battle-mode .player.active{padding-left:9px}
+.battle-mode .player-meta{display:grid;grid-template-columns:40px minmax(100px,1fr) auto auto minmax(150px,25%);align-items:center;gap:12px;margin:0;min-height:0}
+.battle-mode .character-emblem .emblem{width:38px;height:38px}
+.battle-mode .nameplate{display:grid;grid-template-columns:auto 1fr;gap:0 10px;align-items:baseline;min-width:0;line-height:1.35}
+.battle-mode .nameplate small{grid-column:1/-1;font-size:10px}
+.battle-mode .nameplate b{font-size:21px;white-space:nowrap}
+.battle-mode .nameplate>span{font-size:12px;white-space:nowrap}
+.battle-mode .life{gap:7px;line-height:1}
+.battle-mode .life b{font-size:34px}
+.battle-mode .conditions{font-size:11px;gap:7px}
+.battle-mode .conditions>span{padding:3px 6px;white-space:nowrap}
+.battle-mode .skill{grid-column:auto;min-height:0;height:38px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 8px;padding:3px 8px;line-height:1.2;overflow:hidden}
+.battle-mode .skill small{font-size:10px;grid-column:1/-1;white-space:nowrap}
+.battle-mode .skill b{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.battle-mode .skill>span{font-size:12px}
+.battle-mode .field{display:grid;grid-template-columns:85px minmax(0,1fr) 110px;gap:10px;min-height:0;align-items:stretch}
+.battle-mode .decks{display:flex;flex-direction:column;grid-row:auto;gap:5px;min-height:0}
+.battle-mode .deck{min-height:0;flex:1;padding:3px 7px;line-height:1.2;display:flex;flex-wrap:wrap;align-content:center;background:#263039;gap:0 5px}
+.battle-mode .deck>span{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%}
+.battle-mode .deck b{font-size:19px}
+.battle-mode .deck small{font-size:10px}
+.battle-mode .guns{grid-row:auto;display:grid;grid-template-columns:1fr 1fr;gap:10px;min-height:0}
+.battle-mode .gun{display:grid;grid-template-rows:16px minmax(25px,1fr) 16px 27px;min-height:0;padding:4px 10px;border-top-width:2px}
+.battle-mode .gun-head{font-size:10px;line-height:1.3;gap:5px}
+.battle-mode .gun-title{font-size:21px;letter-spacing:.05em;gap:8px;margin:0;line-height:1.1;min-height:0;justify-self:start;max-width:100%}
+.battle-mode .gun-title .emblem{width:30px;height:30px}
+.battle-mode .ammo-meter{margin:0;gap:4px;min-height:0}
+.battle-mode .ammo-meter i{height:8px;max-width:none}
+.battle-mode .ammo-meter b{font-size:12px;white-space:nowrap}
+.battle-mode .gun-footer{margin:0;display:flex;gap:6px;align-items:center;font-size:10px;line-height:1.1;min-height:0}
+.battle-mode .gun-footer button{font-size:11px;padding:3px 7px;min-height:25px;line-height:1.1}
+.battle-mode .gun-footer .ammo-detail{padding:3px 0;border:0;background:none;color:var(--muted)}
+.battle-mode .gun-fire{margin-left:auto;border-color:var(--cyan);color:#ace0d9}
+.battle-mode .zones{display:grid;grid-row:auto;grid-template-columns:1fr 1fr;gap:4px;min-height:0}
+.battle-mode .zone{min-height:0;display:flex;flex-direction:row;gap:7px;padding:3px;line-height:1}
+.battle-mode .zone span{font-size:10px}
+.battle-mode .zone b{font-size:16px}
+.battle-mode .handcount{font-size:10px;line-height:1.2;align-self:center}
+.battle-mode .middle-line{min-height:0;height:22px;font-size:11px;padding:0 12px}
+.battle-mode .hand-zone{margin:0;min-height:0;display:grid;grid-template-rows:27px minmax(0,1fr);gap:3px}
+.battle-mode .hand-label{margin:0;font-size:13px;gap:10px;min-width:0;line-height:1}
+.battle-mode .hand-label>span{font-size:11px}
+.battle-mode .hand{display:grid;grid-template-columns:repeat(var(--hand-columns),minmax(0,1fr));gap:7px;min-height:0;overflow:hidden;padding:2px}
+.battle-mode .hand .card{width:auto;min-width:0;height:100%;min-height:0;max-width:230px;padding:6px 8px;border-top-width:3px;overflow:hidden}
+.battle-mode .hand .card-top{font-size:10px;line-height:1}
+.battle-mode .hand .card>strong{font-size:14px;line-height:1.25;margin:5px 0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;flex-shrink:0}
+.battle-mode .hand .card-symbol{display:none}
+.battle-mode .hand .card p{font-size:11px;line-height:1.4;-webkit-line-clamp:2;margin:0}
+.battle-mode .hand .card small{display:none}
+.battle-mode .decision{margin:0;min-height:0;padding:10px 12px;overflow:hidden}
+.battle-mode .main-decision{display:grid;grid-template-rows:34px minmax(0,1fr);gap:7px}
+.battle-mode .action-bar{display:flex;gap:6px;flex-wrap:nowrap;min-width:0}
+.battle-mode .action-bar button{min-width:0;min-height:32px;font-size:14px;padding:5px 13px;line-height:1.2}
+.battle-mode .end-turn{margin-left:auto}
+.battle-mode .card-dock{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,44%);align-items:center;gap:16px;margin:0;padding:6px 0 0;min-height:0;border-top:1px solid var(--line)}
+.battle-mode .card-dock>.muted{grid-column:1/-1;line-height:1.7}
+.battle-mode .dock-copy{min-width:0;min-height:0}
+.battle-mode .dock-title{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.battle-mode .dock-title strong{font-size:16px;line-height:1.3}
+.battle-mode .dock-title button{padding:2px 5px;font-size:12px;white-space:nowrap;min-height:27px}
+.battle-mode .dock-copy p{font-size:14px;line-height:1.5;margin:4px 0 0;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.battle-mode .dock-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;min-width:0;justify-content:stretch;align-content:center}
+.battle-mode .dock-actions button{font-size:13px;line-height:1.25;padding:7px 6px;min-height:33px}
+.battle-mode .choice-decision{display:grid;grid-template-rows:27px minmax(0,1fr) 30px;gap:7px}
+.battle-mode .decision-heading{margin:0;font-size:14px;line-height:1.3;min-height:0;flex-wrap:nowrap;min-width:0}
+.battle-mode .decision-heading>b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.battle-mode .decision-heading button{font-size:12px;padding:2px 7px;min-height:27px;flex-shrink:0}
+.battle-mode .paged-choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:minmax(0,1fr);max-height:none;min-height:0;gap:6px;overflow:hidden}
+.battle-mode .paged-choices .choice{font-size:14px;line-height:1.4;min-height:0;padding:6px 9px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+.battle-mode .choice-footer{margin:0;min-height:0;font-size:12px;line-height:1.1}
+.battle-mode .choice-footer>button{font-size:13px;min-height:30px;padding:4px 15px}
+.battle-mode .choice-footer .pager button{min-height:29px}
+@media(max-width:999px){
+ .battle-mode .paged-choices{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .battle-mode .player-meta{grid-template-columns:34px minmax(90px,1fr) auto auto minmax(120px,23%);gap:8px}
+ .battle-mode .character-emblem .emblem{width:33px;height:33px}
+ .battle-mode .nameplate>span{display:none}
+ .battle-mode .field{grid-template-columns:70px minmax(0,1fr) 86px;gap:7px}
+ .battle-mode .guns{gap:7px}
+ .battle-mode .gun{padding-left:7px;padding-right:7px}
+ .battle-mode .gun-title{font-size:19px}
+ .battle-mode .gun-title .emblem{width:26px;height:26px}
+ .battle-mode .gun-footer .load-status{display:none}
+}
+@media(max-width:699px){
+ .battle-mode{grid-template-rows:40px minmax(0,1fr)}
+ .battle-mode header{height:40px;padding:3px 9px}
+ .battle-mode .brand{font-size:15px;gap:6px}
+ .battle-mode .sigil{width:25px;height:27px;font-size:21px;line-height:23px}
+ .battle-mode nav{gap:4px}
+ .battle-mode nav button{font-size:12px;padding:3px 7px;min-height:29px}
+ .battle-mode #app{grid-template-rows:24px minmax(0,1fr) clamp(88px,14dvh,116px) clamp(171px,25dvh,214px);gap:5px;padding:3px 6px max(6px,env(safe-area-inset-bottom))}
+ .battle-mode .table-toolbar{font-size:10px;gap:4px;line-height:1}
+ .battle-mode .table-toolbar>div{gap:4px;flex-wrap:nowrap}
+ .battle-mode .table-toolbar button{font-size:11px;padding:3px 6px;min-height:25px}
+ .battle-mode .table-toolbar>div>span{font-size:10px}
+ .battle-mode #connection{display:none}
+ .battle-mode .duel{grid-template-rows:minmax(0,1fr) 18px minmax(0,1fr)}
+ .battle-mode .player{grid-template-rows:47px minmax(0,1fr);padding:4px 6px}
+ .battle-mode .player.active{padding-left:3px}
+ .battle-mode .player-meta{grid-template-columns:30px minmax(64px,1fr) auto auto;gap:5px;position:relative;align-items:start;padding-top:1px}
+ .battle-mode .character-emblem .emblem{width:30px;height:30px}
+ .battle-mode .nameplate{display:block;line-height:1.2;min-width:0}
+ .battle-mode .nameplate small{font-size:9px;display:block}
+ .battle-mode .nameplate b{font-size:17px;display:block;line-height:1.2}
+ .battle-mode .life{align-items:center;gap:4px}
+ .battle-mode .life b{font-size:27px}
+ .battle-mode .life small{font-size:8px}
+ .battle-mode .conditions{flex-direction:row;gap:3px;font-size:9px;line-height:1;align-self:start;padding-top:6px}
+ .battle-mode .conditions>span{padding:3px}
+ .battle-mode .skill{position:absolute;left:35px;bottom:1px;right:0;display:flex;align-items:center;gap:5px;height:17px;padding:0 3px;border:0;background:none;min-height:17px;justify-content:flex-start;line-height:1}
+ .battle-mode .skill small{grid-column:auto;width:auto;font-size:9px;white-space:nowrap;color:var(--muted)}
+ .battle-mode .skill b{font-size:11px;font-weight:400;max-width:65%}
+ .battle-mode .skill>span{font-size:10px}
+ .battle-mode .field{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) 23px;gap:4px;position:relative}
+ .battle-mode .decks{display:none}
+ .battle-mode .guns{grid-row:1;gap:6px}
+ .battle-mode .gun{grid-template-rows:12px minmax(20px,1fr) 12px 25px;padding:3px 6px;border-top-width:2px}
+ .battle-mode .gun-head{font-size:9px}
+ .battle-mode .gun-title{font-size:18px;gap:5px}
+ .battle-mode .gun-title .emblem{width:25px;height:25px}
+ .battle-mode .ammo-meter{gap:3px}
+ .battle-mode .ammo-meter i{height:6px}
+ .battle-mode .ammo-meter b{font-size:11px;margin-left:4px}
+ .battle-mode .gun-footer{font-size:9px;gap:3px;justify-content:space-between}
+ .battle-mode .gun-footer button{min-height:24px;font-size:10px;padding:2px 5px}
+ .battle-mode .gun-footer .ammo-detail{font-size:10px;min-height:24px}
+ .battle-mode .gun-fire{margin-left:auto;min-width:47px}
+ .battle-mode .zones{display:flex;grid-row:2;gap:4px;align-items:stretch}
+ .battle-mode .zone{flex:1;padding:2px 3px;gap:4px;min-height:22px}
+ .battle-mode .zone span{font-size:9px}
+ .battle-mode .zone b{font-size:13px}
+ .battle-mode .handcount{font-size:9px;white-space:nowrap;align-self:center}
+ .battle-mode .middle-line{font-size:10px;height:18px;padding:0 8px}
+ .battle-mode .middle-line>span+span{font-size:8px}
+ .battle-mode .hand-zone{grid-template-rows:25px minmax(0,1fr);gap:2px}
+ .battle-mode .hand-label{font-size:12px;gap:7px}
+ .battle-mode .hand-label>span{display:none}
+ .battle-mode .pager{gap:5px}
+ .battle-mode .pager button{font-size:12px;padding:3px 9px;min-height:25px}
+ .battle-mode .pager span{font-size:11px}
+ .battle-mode .hand{gap:5px;padding:2px}
+ .battle-mode .hand .card{padding:4px 6px;border-top-width:3px;max-width:none}
+ .battle-mode .hand .card-top{font-size:9px}
+ .battle-mode .hand .card>strong{font-size:13px;margin:5px 0 3px;line-height:1.2}
+ .battle-mode .hand .card p{font-size:10px;line-height:1.35;-webkit-line-clamp:2}
+ .battle-mode .decision{padding:7px 8px}
+ .battle-mode .main-decision{grid-template-rows:31px minmax(0,1fr);gap:5px}
+ .battle-mode .action-bar{gap:4px}
+ .battle-mode .action-bar button{font-size:13px;padding:5px 8px;min-height:31px}
+ .battle-mode .action-bar .subtle{padding:4px 5px;font-size:12px}
+ .battle-mode .card-dock{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto;gap:4px;padding-top:4px}
+ .battle-mode .dock-title strong{font-size:14px}
+ .battle-mode .dock-title button{font-size:11px;min-height:22px;padding:1px 5px}
+ .battle-mode .dock-copy p{font-size:13px;line-height:1.45;margin:2px 0 0;-webkit-line-clamp:2}
+ .battle-mode .dock-actions{gap:4px;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .battle-mode .dock-actions button{font-size:12px;padding:5px;min-height:29px;line-height:1.2}
+ .battle-mode .choice-decision{grid-template-rows:24px minmax(0,1fr) 29px;gap:5px}
+ .battle-mode .decision-heading{font-size:13px}
+ .battle-mode .decision-heading button{font-size:11px;min-height:25px;padding:2px 5px}
+ .battle-mode .paged-choices{gap:5px}
+ .battle-mode .paged-choices .choice{font-size:12px;padding:5px 7px;line-height:1.35;-webkit-line-clamp:3}
+ .battle-mode .choice-footer{font-size:11px;gap:6px}
+ .battle-mode .choice-footer>button{font-size:12px;padding:4px 12px;min-height:29px}
+ .expanded-choices{grid-template-columns:1fr}
+ .expanded-choices .choice{font-size:14px}
+}
+/* Short portrait screens keep every control reachable; details stay one tap away. */
+@media(max-width:699px) and (max-height:700px){
+ .battle-mode #app{grid-template-rows:23px minmax(0,1fr) 88px 176px;gap:4px}
+ .battle-mode .player{grid-template-rows:41px minmax(0,1fr);padding-top:2px;padding-bottom:2px}
+ .battle-mode .player-meta{padding-top:0}
+ .battle-mode .skill{bottom:0}
+ .battle-mode .character-emblem .emblem{width:27px;height:27px}
+ .battle-mode .gun{grid-template-rows:10px minmax(18px,1fr) 10px 23px;padding-top:1px;padding-bottom:1px}
+ .battle-mode .gun-title{font-size:16px}
+ .battle-mode .gun-title .emblem{width:21px;height:21px}
+ .battle-mode .gun-head{font-size:8px}
+ .battle-mode .gun-footer button,.battle-mode .gun-footer .ammo-detail{min-height:23px;font-size:9px}
+ .battle-mode .hand .card p{display:none}
+ .battle-mode .dock-copy p{-webkit-line-clamp:2;font-size:12px}
+}
+@media(max-width:699px) and (max-height:610px){
+ .battle-mode #app{grid-template-rows:23px minmax(0,1fr) 77px 172px;gap:3px}
+ .battle-mode .player{grid-template-rows:33px minmax(0,1fr);padding-left:4px;padding-right:4px}
+ .battle-mode .player-meta{grid-template-columns:23px minmax(61px,1fr) auto auto;gap:3px}
+ .battle-mode .character-emblem .emblem{width:23px;height:23px}
+ .battle-mode .nameplate small{font-size:8px}
+ .battle-mode .nameplate b{font-size:15px}
+ .battle-mode .life b{font-size:23px}
+ .battle-mode .life small{display:none}
+ .battle-mode .conditions{padding-top:2px;font-size:8px}
+ .battle-mode .skill{left:27px;height:12px;min-height:12px;bottom:-1px}
+ .battle-mode .skill small{font-size:8px}
+ .battle-mode .skill b{font-size:9px}
+ .battle-mode .field{grid-template-rows:minmax(0,1fr) 18px;gap:2px}
+ .battle-mode .zones .zone{min-height:18px}
+ .battle-mode .gun{grid-template-rows:minmax(18px,1fr) 8px 20px;padding:1px 4px}
+ .battle-mode .gun-head{display:none}
+ .battle-mode .gun-title{font-size:15px}
+ .battle-mode .gun-title .emblem{width:18px;height:18px}
+ .battle-mode .gun-footer button,.battle-mode .gun-footer .ammo-detail{min-height:20px}
+ .battle-mode .hand-zone{grid-template-rows:23px minmax(0,1fr)}
+ .battle-mode .hand .card>strong{font-size:12px;margin-top:4px}
+}
+/* Landscape phones: board on the left, hand and controls on the right. */
+@media(min-width:700px) and (max-height:540px){
+ .battle-mode{grid-template-rows:35px minmax(0,1fr)}
+ .battle-mode header{height:35px;padding-top:2px;padding-bottom:2px}
+ .battle-mode #app{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);grid-template-rows:23px minmax(70px,.7fr) minmax(130px,1.3fr);grid-template-areas:"toolbar toolbar" "board hand" "board decision";padding:3px 7px 5px;gap:5px}
+ .battle-mode .table-toolbar{grid-area:toolbar}
+ .battle-mode .duel{grid-area:board;grid-template-rows:minmax(0,1fr) 16px minmax(0,1fr)}
+ .battle-mode .hand-zone{grid-area:hand;grid-template-rows:23px minmax(0,1fr)}
+ .battle-mode .decision{grid-area:decision;padding:6px 8px}
+ .battle-mode .player{grid-template-rows:31px minmax(0,1fr);padding:3px 5px}
+ .battle-mode .player-meta{grid-template-columns:26px minmax(60px,1fr) auto auto;gap:5px}
+ .battle-mode .character-emblem .emblem{width:25px;height:25px}
+ .battle-mode .nameplate b{font-size:17px}
+ .battle-mode .nameplate small{font-size:8px}
+ .battle-mode .life b{font-size:25px}
+ .battle-mode .life small{font-size:8px}
+ .battle-mode .conditions{font-size:8px;gap:3px}
+ .battle-mode .conditions>span{padding:2px 3px}
+ .battle-mode .skill{display:none}
+ .battle-mode .field{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) 20px;gap:3px}
+ .battle-mode .decks{display:none}
+ .battle-mode .guns{grid-row:1;gap:5px}
+ .battle-mode .gun{grid-template-rows:10px minmax(18px,1fr) 10px 22px;padding:2px 5px}
+ .battle-mode .gun-head{font-size:8px}
+ .battle-mode .gun-title{font-size:17px;gap:5px}
+ .battle-mode .gun-title .emblem{width:21px;height:21px}
+ .battle-mode .gun-footer button{min-height:22px;font-size:10px;padding:2px 5px}
+ .battle-mode .gun-footer .ammo-detail{padding:2px 0}
+ .battle-mode .ammo-meter i{height:6px}
+ .battle-mode .zones{display:flex;grid-row:2;gap:4px}
+ .battle-mode .zone{flex:1;padding:2px;gap:5px}
+ .battle-mode .zone b{font-size:13px}
+ .battle-mode .zone span,.battle-mode .handcount{font-size:9px}
+ .battle-mode .middle-line{height:16px;font-size:9px}
+ .battle-mode .hand-label>span{display:none}
+ .battle-mode .hand .card{padding:4px 6px}
+ .battle-mode .hand .card>strong{font-size:12px;margin:4px 0}
+ .battle-mode .hand .card p{display:none}
+ .battle-mode .main-decision{grid-template-rows:29px minmax(0,1fr);gap:5px}
+ .battle-mode .action-bar button{font-size:12px;padding:4px 7px;min-height:29px}
+ .battle-mode .card-dock{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto;gap:3px;padding-top:3px}
+ .battle-mode .dock-title strong{font-size:13px}
+ .battle-mode .dock-title button{min-height:23px}
+ .battle-mode .dock-copy p{font-size:12px;line-height:1.35;-webkit-line-clamp:2}
+ .battle-mode .dock-actions{gap:4px}
+ .battle-mode .dock-actions button{font-size:11px;padding:4px;min-height:26px}
+ .battle-mode .choice-decision{grid-template-rows:24px minmax(0,1fr) 27px;gap:4px}
+ .battle-mode .paged-choices{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .battle-mode .paged-choices .choice{font-size:12px;line-height:1.3;padding:4px 6px;-webkit-line-clamp:3}
+}
+.gun-deck-count{display:none}
+@media(max-width:699px),(max-height:540px){
+ .battle-mode .gun-title{width:100%;justify-self:stretch}
+ .battle-mode .gun-title>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .battle-mode .gun-deck-count{display:block;font:10px ui-monospace,monospace;color:var(--muted);margin-left:auto;letter-spacing:0;white-space:nowrap}
+}
+@media(max-width:699px) and (max-height:610px){.battle-mode .nameplate small{display:none}.battle-mode .nameplate b{padding-top:2px}}

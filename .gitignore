@@ -3,3 +3,7 @@ dist/
 .openai/*.tar.gz
 
 worker/assets.js
+
+qa-viewport.html
+
+qa-fixture.json
