@@ -287,7 +287,23 @@ export function view(g,seat){const s=clone(g.s);s.seat=seat;s.config={block:g.co
  if(s.draft){s.draft.lineups=s.draft.lineups.map((l,p)=>({char:l.char,guns:p===seat?l.guns:s.draft.publicLineups?.[p]?.guns||l.guns}));delete s.draft.publicLineups;}
  s.players=s.players.map((a,p)=>{a.deckCounts=a.decks.map(d=>d.length);delete a.decks;if(p!==seat){a.handCount=a.hand.length;a.hand=[];a.skill=p===seat||a.skillUp?a.skill:null;a.responses=a.responses.map(c=>({uid:c.uid,name:'セット対応',face:false}));a.voltage=a.voltage.map(c=>({uid:c.uid,name:'ボルテージ',face:false}));a.guns.forEach(g=>g.ammo=g.ammo.map(c=>c.face?c:{uid:c.uid,name:'通常弾',face:false}));}return a;});return s;}
 
-export function publicFrame(s){return {turn:s.turn,active:s.active,players:s.players.map(a=>({life:a.life,burn:a.burn,shock:a.shock,handCount:a.handCount??a.hand.length,deckCounts:a.deckCounts??a.decks.map(d=>d.length),zones:{voltage:a.voltage.length,discard:a.discard.length,responses:a.responses.length,functions:a.functions.length},guns:a.guns.map(g=>({id:g.id,up:g.up,basicRemaining:basicLoadRemaining(a,g),loaded:g.loaded,fired:g.fired,ammo:g.ammo.reduce((n,c)=>n+(c.face&&c.name==='ダブルバレット'?2:1),0)}))}))};}
+export function restrictionState(s){return s.players.map((a,p)=>{
+ const t=a.temp||{},f=a.flags||{},out=[],add=(key,label,scope,gun=null)=>out.push({key,label,scope,gun});
+ const labels={noAction:'行動使用不可',noFire:'射撃不可',noBasicLoad:'通常装填不可',noEffectLoad:'効果装填不可',noDraw:'効果ドロー不可',noSkill:'技能使用不可',noResponse:'対応発動不可',nullified:'銃士・機銃・機能の効果無効'};
+ for(const [key,label]of Object.entries(labels)){if(t[key])add(key,label,'このターン終了まで');if(f[key+'Next'])add(key+'Next',label,'次の自分のターン');}
+ if(!t.noAction&&s.active===p&&a.counts?.actions&&s.players[1-p]?.functions.some(c=>c.name==='ノイズジェネレーター')&&!s.players[1-p].temp?.nullified)add('noise','行動使用不可','このターン（2枚目以降）');
+ if(f.sew)add('noAbility','銃士効果使用不可','このゲーム中');
+ a.guns.forEach((g,i)=>{const name=g.def?.name||GS.find(x=>x.id===g.id)?.name||'機銃',prefix=(i?'右':'左')+'・'+name+'：';
+  if(!g.up)add('down',prefix+'機銃停止','表向きになるまで',i);
+  if(g.blocked&&s.active===p)add('blocked',prefix+'射撃不可','このターン終了まで',i);
+  if(f['blockNext'+i])add('blockNext',prefix+'射撃不可','次の自分のターン',i);
+  if(t.poison===i)add('poison',prefix+'ドロー不可','このターン終了まで',i);
+  if(f.poisonNext===i)add('poisonNext',prefix+'ドロー不可','次の自分のターン',i);
+  if(f.maka===i)add('maka',prefix+'射撃・ドロー不可','このゲーム中',i);
+ });return out;
+});}
+
+export function publicFrame(s){return {turn:s.turn,active:s.active,players:s.players.map(a=>({restrictions:restrictionState(s)[s.players.indexOf(a)],life:a.life,burn:a.burn,shock:a.shock,handCount:a.handCount??a.hand.length,deckCounts:a.deckCounts??a.decks.map(d=>d.length),zones:{voltage:a.voltage.length,discard:a.discard.length,responses:a.responses.length,functions:a.functions.length},guns:a.guns.map(g=>({id:g.id,up:g.up,basicRemaining:basicLoadRemaining(a,g),loaded:g.loaded,fired:g.fired,ammo:g.ammo.reduce((n,c)=>n+(c.face&&c.name==='ダブルバレット'?2:1),0)}))}))};}
 
 export function gunSynergyScore(charId,g,chosen=[]){if(!g)return -1000;const preferences={c0:['g0','g15','g3','g1'],c1:['g3','g4','g14','g7'],c2:['g4','g7','g16','g1'],c3:['g1','g6','g11','g0'],c4:['g7','g3','g4','g15'],c5:['g14','g1','g7','g3'],c6:['g9','g0','g10','g15'],c7:['g2','g13','g12','g15'],c8:['g4','g3','g12','g16'],c9:['g15','g11','g0','g6'],c10:['g9','g1','g3','g11'],c11:['g0','g12','g15','g17']};const pref=preferences[charId]||[],i=pref.indexOf(g.id);let score=i<0?0:6-i;const partner=GS.find(x=>x.id===chosen[0]);if(partner){if(g.kind!==partner.kind)score+=1;if(g.load+partner.load>=3)score+=1;if(['g14','g16'].includes(g.id)&&['g14','g16'].includes(partner.id))score-=12;if(partner.id==='g7'&&g.id==='g17'||partner.id==='g17'&&g.id==='g7')score+=2;if(partner.id==='g16'&&g.cards.some(c=>c.name==='高速充電'||c.name==='ファストリロード'))score+=3;}return score;}
 

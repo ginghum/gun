@@ -132,3 +132,12 @@ test('灰棄弾は相手ターンの手札・山札破棄だけVへ移せ、装�
   const yes=active===0&&['hand','deck'].includes(source);assert.equal(a.voltage.includes(c),yes,source+active);assert.equal(a.discard.includes(c),!yes);assert.equal(prompts,Number(yes));
  }
 });
+
+test('操作制限は現在・次手番・銃別・恒久を分け、解除後と無効化された機能を表示しない',async()=>{
+ const {restrictionState,publicFrame}=await import('../src/engine.js');const g=ready(),a=g.player(0),b=g.player(1);g.s.active=0;
+ a.temp.noAction=true;a.temp.noFire=true;a.flags.noSkillNext=true;a.temp.poison=0;a.flags.maka=1;a.guns[0].blocked=true;
+ let r=restrictionState(g.s)[0];assert(r.some(x=>x.key==='noAction'&&x.scope==='このターン終了まで'));assert(r.some(x=>x.key==='noSkillNext'&&x.scope==='次の自分のターン'));assert(r.some(x=>x.key==='poison'&&x.gun===0));assert(r.some(x=>x.key==='maka'&&x.gun===1&&x.scope==='このゲーム中'));
+ const frame=publicFrame(g.s);a.temp={};delete a.flags.noSkillNext;delete a.flags.maka;g.s.active=1;
+ assert.equal(restrictionState(g.s)[0].length,0);assert(frame.players[0].restrictions.some(x=>x.key==='noFire'));
+ g.s.active=0;a.counts.actions=1;b.functions.push({name:'ノイズジェネレーター'});assert(restrictionState(g.s)[0].some(x=>x.key==='noise'));b.temp.nullified=true;assert(!restrictionState(g.s)[0].some(x=>x.key==='noise'));
+});

@@ -611,3 +611,13 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none}body{height:100dv
  .battle-mode .hand .card p{display:none}
  .battle-mode #action-explanation{font-size:12px;-webkit-line-clamp:2}
 }
+
+/* Current and upcoming restrictions remain visible beside the live action. */
+#restriction-overview{display:flex;gap:4px;min-width:0;flex-wrap:wrap}
+#restriction-overview:empty{display:none}
+.table-narration #restriction-overview .restriction-chip{display:block;max-width:100%;min-width:0;min-height:23px;padding:2px 7px;border:1px solid #df9b81;background:#492d2b;color:#ffe4ce;font-size:12px;line-height:1.35;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.table-narration.has-restrictions .action-copy{gap:3px}
+.table-narration.has-restrictions #action-explanation{display:none}
+.battle-mode .fire-locked{border-color:#b56c62!important;border-top-color:#d67c6e!important}
+.battle-mode .fire-locked .gun-fire,.battle-mode .fire-locked .gun-footer>span:last-child{color:#9b302b!important;background:#f4d6cc;border-color:#9b302b;opacity:1;font-weight:700;border-radius:3px;padding:2px 5px}
+@media(max-width:699px){.table-narration #restriction-overview .restriction-chip{font-size:10px;min-height:19px;padding:1px 4px;line-height:1.4}.table-narration.has-restrictions #table-action{font-size:11px;line-height:1.3}.table-narration.has-restrictions .action-copy{gap:2px}#restriction-overview{gap:2px}.battle-mode .fire-locked .gun-footer>span:last-child{font-size:8px}}
