@@ -71,3 +71,27 @@ test('自由・ドラフトの両CPUと全使用範囲のおすすめ編成で�
   }
  }
 });
+
+test('自由編成は相手を待たず最後まで選択し、非公開情報を守って合流する',()=>{
+ const config={seed:41,parallelSelection:true,openingConfirm:true,enforceBannedCombo:true},events=[];
+ let g=replay(config);assert(g.s.pendings[0]&&g.s.pendings[1]);
+ const otherKey=view(g,0).pending.key;
+ for(let i=0;i<4;i++){const q=view(g,1).pending;assert.equal(q.p,1);events.push({p:1,key:q.key,value:q.options[0].value});g=replay(config,events);}
+ assert.equal(view(g,0).pending.key,otherKey);assert.equal(view(g,0).selection[1],null);
+ assert.equal(view(g,1).pending.options.length,0);
+ for(let i=0;i<4;i++){const q=view(g,0).pending;events.push({p:0,key:q.key,value:q.options[0].value});g=replay(config,events);}
+ assert.equal(g.s.phase,'opening');assert(g.s.pendings[0]&&g.s.pendings[1]);
+ const q=view(g,1).pending;events.push({p:1,key:q.key,value:'ready'});g=replay(config,events);assert.deepEqual(g.s.ready,[false,true]);assert(g.s.players.every(p=>p.hand.length===0));
+ const q0=view(g,0).pending;events.push({p:0,key:q0.key,value:'ready'});g=replay(config,events);assert.equal(g.s.phase,'battle');
+ assert.deepEqual(replay(config,events).s,g.s);
+});
+
+test('ドラフトの選出後は技能と配置を並行選択し、相手の配置確定は秘匿する',()=>{
+ const config={seed:42,draft:true,draftGunCount:9,parallelSelection:true},events=[];let g=replay(config);
+ while(!g.s.pendings){const q=g.s.pending;events.push({p:q.p,key:q.key,value:q.options[0].value});g=replay(config,events);}
+ const original=[...view(g,0).draft.lineups[1].guns];
+ for(let i=0;i<2;i++){const q=view(g,1).pending;events.push({p:1,key:q.key,value:i?1:0});g=replay(config,events);}
+ assert.deepEqual(view(g,0).draft.lineups[1].guns,original);assert.equal(view(g,0).draft.lineups[1].skill,undefined);
+ for(let i=0;i<2;i++){const q=view(g,0).pending;events.push({p:0,key:q.key,value:0});g=replay(config,events);}
+ assert.equal(g.s.phase,'battle');assert.deepEqual(g.s.players[1].guns.map(g=>g.id),original.reverse());
+});

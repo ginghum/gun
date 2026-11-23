@@ -44,3 +44,16 @@ test('同じ部屋の両者が合意すると編成から再試合し、旧操�
  d=await r.json();if(!draft)assert.equal(d.state.selection[actor].char,value);
 }
 });
+
+test('同時編成の更新は相手側の更新番号が進んでも受理し、自分だけを巻き戻せる',async()=>{
+ const env={BUCKET:new MemoryBucket()},ts=['3'.repeat(48),'4'.repeat(48)];let d=await(await handle(req('',ts[0],{}),env)).json();const code=d.code;
+ await handle(req('/'+code+'/join',ts[1],{}),env);
+ const states=await Promise.all(ts.map(t=>handle(req('/'+code,t),env).then(r=>r.json())));
+ assert(states.every((d,p)=>d.state.pending.p===p));
+ const bodies=states.map((d,p)=>({id:'parallel'+p,rev:d.rev,round:d.round,event:{p,key:d.state.pending.key,value:p?'c1':'c0'}}));
+ const rs=await Promise.all(ts.map((t,p)=>handle(req('/'+code+'/action',t,bodies[p]),env)));assert(rs.every(r=>r.status===200));
+ d=await(await handle(req('/'+code,ts[0]),env)).json();assert.equal(d.state.selection[0].char,'c0');assert.equal(d.state.selection[1],null);
+ d=await(await handle(req('/'+code+'/back',ts[0],{id:'own-back',rev:d.rev}),env)).json();assert.equal(d.state.pending.title,'銃士を選択');
+ const other=await(await handle(req('/'+code,ts[1]),env)).json();assert.equal(other.state.selection[1].char,'c1');
+ assert.equal((await handle(req('/'+code+'/action',ts[0],{...bodies[0],id:'wrong-round',round:99}),env)).status,409);
+});
