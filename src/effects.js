@@ -1,0 +1,41 @@
+// Small, original line marks for the public action track. No card artwork required.
+const marks={
+ fire:'<circle cx="27" cy="27" r="15"/><path d="M27 3v14 M27 37v14 M3 27h14 M37 27h14"/>',
+ action:'<path d="M12 9h25v36H12z M21 17l12 10-12 10 M6 20h6 M6 34h6"/>',
+ function:'<rect x="13" y="13" width="28" height="28" rx="4"/><path d="M21 21h12v12H21z M20 5v8 M34 5v8 M20 41v8 M34 41v8 M5 20h8 M5 34h8 M41 20h8 M41 34h8"/>',
+ ability:'<circle cx="27" cy="18" r="7"/><path d="M14 44v-6c0-13 26-13 26 0v6 M27 3v4 M9 10l5 5 M45 10l-5 5 M4 27h7 M43 27h7"/>',
+ skill:'<path d="m27 4 20 23-20 23L7 27Z M27 13v28 M15 27h24"/><circle cx="27" cy="27" r="6"/>',
+ response:'<path d="m27 5 19 8v14c0 11-19 22-19 22S8 38 8 27V13Z M17 28l7 7 14-17"/>',
+ dealt:'<path d="M5 27h33 M28 15l12 12-12 12 M42 9l-4 8 M49 20l-7 3 M49 36l-7-4 M42 46l-4-8"/>',
+ received:'<path d="m30 6 17 8v13c0 11-17 21-17 21s-13-8-16-17 M4 24h26 M22 16l8 8-8 8 M31 14l-5 11 9 6-5 10"/>',
+ burn:'<path d="M28 5c2 12 17 16 17 29a18 18 0 0 1-36 0c0-7 4-13 9-18 0 8 4 10 6 11 5-7 4-15 4-22Z M27 29c8 8 11 17 0 20-10-3-8-11 0-20Z"/>',
+ shock:'<path d="M30 4 12 29h13l-2 21 20-29H29Z M9 8l5 5 M43 6l-4 7 M7 43l7-5 M46 42l-7-5"/>',
+ draw:'<path d="M7 11h21v31H7z M12 6h21v11 M20 29h28 M39 20l9 9-9 9 M37 42h12 M43 36v12"/>',
+ discard:'<path d="M6 7h23v27H6z M11 12l13 15 M24 12 11 27 M34 8v20 M28 22l6 6 6-6 M31 34h18 M34 34v14h12V34 M38 39v5 M42 39v5"/>',
+ mill:'<path d="M5 8h20v25H5z M9 4h20v12 M15 14v10 M34 13v14 M29 22l5 5 5-5 M30 33h20 M33 33v15h14V33 M37 38v6 M42 38v6"/>',
+ load:'<path d="M27 5c-8 7-10 14-10 23v16h20V28C37 19 35 12 27 5Z M17 34h20 M12 49h30"/>',
+ set:'<path d="m27 6 21 21-21 21L6 27Z M17 27h20 M27 17v20"/>',
+ heal:'<path d="M21 7h12v14h14v12H33v14H21V33H7V21h14Z"/>',
+ voltage:'<path d="M9 10h25v35H9z M14 5h25v13 M26 17l-9 14h10l-2 10 13-18H27Z"/>',
+ recover:'<path d="M26 10H11v31h25V28 M46 12H28 M35 5l-7 7 7 7 M17 29h12 M23 23v12"/>',
+ turn:'<path d="M10 20a19 19 0 0 1 34-6 M44 5v10H34 M44 34a19 19 0 0 1-34 6 M10 49V39h10"/>',
+ stop:'<path d="M14 6h26l9 9v24l-9 9H14l-9-9V15Z M20 18v18 M34 18v18"/>',
+ choose:'<path d="M7 10h16v16H7z M31 10h16v16H31z M18 35l8 13 10-20 M5 35h7 M42 36h7"/>',
+ 'restriction-noAbility':'<circle cx="27" cy="17" r="7"/><path d="M13 45v-9c0-11 28-11 28 0v9 M5 49 49 5"/>',
+ 'restriction-noAction':'<path d="M13 7h28v40H13z M20 16l12 11-12 11 M5 49 49 5"/>',
+ 'restriction-noBasicLoad':'<path d="M27 6c-7 7-9 13-9 23v18h18V29c0-10-2-16-9-23Z M18 36h18 M5 49 49 5"/>',
+ 'restriction-noEffectLoad':'<path d="M34 8c-6 6-8 12-8 20v17h16V28c0-8-2-14-8-20Z M6 17h15 M13 10v14 M5 49 49 5"/>',
+ 'restriction-noDraw':'<path d="M8 7h22v35H8z M30 24h17 M39 16l8 8-8 8 M5 49 49 5"/>',
+ 'restriction-noFire':'<circle cx="27" cy="27" r="16"/><path d="M27 3v13 M27 38v13 M3 27h13 M38 27h13 M5 49 49 5"/>',
+ 'restriction-noSkill':'<path d="m27 5 20 22-20 22L7 27Z M27 15v24 M17 27h20 M5 49 49 5"/>',
+ 'restriction-noResponse':'<path d="m27 5 19 8v14c0 11-19 22-19 22S8 38 8 27V13Z M5 49 49 5"/>',
+ 'restriction-nullified':'<circle cx="27" cy="16" r="7"/><path d="M13 45v-8c0-12 28-12 28 0v8 M4 27h9 M41 27h9 M5 49 49 5"/>',
+ 'restriction-blocked':'<path d="M6 15h39v12H29l-8 18H10l8-18H6z M5 49 49 5"/>',
+ 'restriction-skip':'<path d="M14 5h26 M14 49h26 M18 5v10l18 24v10 M36 5v10L18 39v10 M18 15h18 M18 39h18"/>',
+ 'restriction-forcedEnd':'<path d="M17 5h20l12 12v20L37 49H17L5 37V17Z M20 17v20 M34 17v20"/>',
+ 'restriction-poison':'<path d="M7 7h21v36H7z M31 29v-7a7 7 0 0 1 14 0v7 M28 29h21v19H28z M38 36v5"/>',
+ 'restriction-maka':'<path d="M5 9h22v30H5z M28 16h21v10H38l-6 17h-9 M5 49 49 5"/>'
+};
+export const EFFECT_KINDS=Object.keys(marks);
+export function effectSVG(kind){return `<svg class="effect-mark" viewBox="0 0 54 54" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${marks[kind]||marks.skill}</svg>`;}
+export function effectKind(e,seat=0){if(e.type==='restriction')return 'restriction-'+e.restriction;if(e.type==='hit')return e.p===seat||e.from===e.p?'received':'dealt';if(e.type==='play')return e.cardType==='機能'?'function':'action';return e.type;}
