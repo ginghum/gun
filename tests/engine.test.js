@@ -41,3 +41,33 @@ test('先手初ターンは二丁合計1射撃、連射・効果射撃でも超�
 test('おすすめ編成は12銃士を網羅し、対戦相手の銃士と銃は重複しない',async()=>{const {recommendedLineups}=await import('../src/engine.js');const chars=new Set();for(let seed=0;seed<144;seed++){const ls=recommendedLineups(seed),g=new Game();ls.forEach(l=>{g.validateLineup(l);assert(l.guns.some(id=>GS.find(g=>g.id===id).kind==='ライト'));});chars.add(ls[0].char);assert.notEqual(ls[0].char,ls[1].char);assert(ls[0].guns.every(id=>!ls[1].guns.includes(id)));}assert.equal(chars.size,12);});
 
 test('ドラフト9候補は複数シード・各使用範囲で分類3種類ずつ',()=>{for(const block of [null,1,2])for(let seed=1;seed<=60;seed++){const g=replay({seed,draft:true,draftGunCount:9,block});for(const kind of ['ライト','ヘビー','スペシャル'])assert.equal(new Set(g.s.draft.guns.filter(g=>g.kind===kind).map(g=>g.id)).size,3);}});
+
+
+test('エコ＋キヨヒメは新編成の全入口で選択不可、他銃士と旧対戦は再現可能',()=>{
+ const bad={char:'c8',guns:['g7','g9'],skill:0};
+ assert.throws(()=>new Game({enforceBannedCombo:true}).validateLineup(bad),/エコとキヨヒメ/);
+ assert.doesNotThrow(()=>new Game().validateLineup(bad));
+ const cfg={seed:7,enforceBannedCombo:true},g=replay(cfg),q=g.s.pending;
+ const next=replay(cfg,[{p:q.p,key:q.key,value:'c8'}]);
+ assert(!next.s.pending.options.some(o=>o.value==='g7'));
+ const other=replay(cfg,[{p:q.p,key:q.key,value:'c0'}]);
+ assert(other.s.pending.options.some(o=>o.value==='g7'));
+ assert.throws(()=>replay({...cfg,lineups:[bad]}),/エコとキヨヒメ/);
+});
+test('自由・ドラフトの両CPUと全使用範囲のおすすめ編成で禁止組合せを生成しない',async()=>{
+ const {recommendedLineups}=await import('../src/engine.js');
+ for(const block of [null,1,2])for(let seed=1;seed<=120;seed++){
+  const cfg={seed,block,enforceBannedCombo:true,cpuSynergy:true},g=new Game(cfg);
+  for(const l of recommendedLineups(seed,block)){g.validateLineup(l);assert(l.guns.some(id=>GS.find(x=>x.id===id).kind==='ライト'));}
+  for(const draft of [false,true]){let events=[];
+   for(let step=0;step<14;step++){
+    const game=replay({...cfg,draft,draftGunCount:9,openingConfirm:true},events),q=game.s.pending;
+    if(game.s.phase==='opening'){for(const p of game.s.players)assert(p.char.id!=='c8'||p.guns.every(g=>g.id!=='g7'));break;}
+    const line=(game.s.draft?.lineups||game.s.selection)?.[q.p];
+    if(q.title.includes('機銃を選択')&&line?.char==='c8')assert(!q.options.some(o=>o.value==='g7'));
+    events.push({p:q.p,key:q.key,value:game.ai(q)});
+    if(step===13)assert.fail('selection did not finish');
+   }
+  }
+ }
+});

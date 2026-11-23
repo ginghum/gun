@@ -13,3 +13,29 @@ test('ドローと手札破棄の表示は移動方向と枚数を示し、非�
 test('自分の通常装填だけ待機を省き、反応ダメージと相手装填は手札をロックする',async()=>{const {TablePresentation}=await import('../src/presentation.js');const prior=globalThis.document,hand={inert:false};globalThis.document={querySelector:()=>null,querySelectorAll:()=>[hand],body:{classList:{add(){},remove(){}}}};try{const p=new TablePresentation();p.effect=()=>{};p.update({seat:0,players:[],feed:[],feedSeq:0});p.update({seat:0,players:[],feed:[{id:1,p:0,type:'load',basic:true}],feedSeq:1});assert.equal(p.playing,false);assert.equal(hand.inert,false);p.paused=true;p.update({seat:0,players:[],feed:[{id:2,p:0,type:'hit',amount:3}],feedSeq:2});assert.equal(p.playing,true);assert.equal(hand.inert,true);p.skip();assert.equal(hand.inert,false);p.update({seat:0,players:[],feed:[{id:3,p:1,type:'load',basic:true}],feedSeq:3});assert.equal(p.playing,true);p.reset();}finally{globalThis.document=prior;}});
 test('技能支払いの自動選択は必要枚数だけを選び、他の選択には適用しない',async()=>{const {automaticPaymentIndices}=await import('../src/presentation.js');assert.deepEqual(automaticPaymentIndices({title:'支払うボルテージ',min:3,options:[0,1,2,3,4]}),[0,1,2]);assert.deepEqual(automaticPaymentIndices({title:'支払うボルテージ',min:1,options:[0,1]}),[0]);assert.deepEqual(automaticPaymentIndices({title:'捨てる手札',min:1,options:[0,1]}),[]);assert.deepEqual(automaticPaymentIndices({title:'支払うボルテージ',min:3,options:[0]}),[]);});
 test('射撃・技能・OC・特殊技・HITを別の大型SVG演出に割り当てる',async()=>{const {spectacleKind,spectacleSVG}=await import('../src/presentation.js');for(const [e,kind]of [[{type:'fire'},'fire'],[{type:'skill'},'skill'],[{type:'stop',overclock:true},'overclock'],[{type:'play',name:'轟雷砲'},'special'],[{type:'hit'},'hit']]){assert.equal(spectacleKind(e),kind);const svg=spectacleSVG(kind,true);assert.match(svg,/<svg/);assert.match(svg,/burst-wave/);}assert.equal(spectacleKind({type:'load'}),null);});
+
+
+test('マリガン・山札・対応・技能確認の待機理由を直前の演出より優先する',async()=>{
+ const {TablePresentation,pendingNarration}=await import('../src/presentation.js');
+ const elements=Object.fromEntries(['#table-action','#event-mark','#action-explanation'].map(k=>[k,{textContent:'',innerHTML:''}])),previous=globalThis.document;
+ globalThis.document={querySelector:s=>elements[s]||null,body:{classList:{remove(){},add(){}}}};
+ const s={seat:0,winner:null,players:[{char:{name:'キルコ'}},{char:{name:'ナトリ'}}],pending:{p:0,title:'開始時に引き直す手札',key:'choice:1',min:0,max:4}};
+ try{const p=new TablePresentation();p.state=s;p.last={type:'draw',p:1,label:'5枚ドロー',count:5};p.restore();
+  assert.match(elements['#table-action'].textContent,/自分・キルコ：マリガン/);assert.match(elements['#action-explanation'].textContent,/0枚/);
+  p.playing=true;p.restore();assert.match(elements['#table-action'].textContent,/相手・ナトリ：5枚ドロー/);
+  p.playing=false;s.pending.title='使用する山札を選択（ボルテージへ）';p.restore();assert.match(elements['#table-action'].textContent,/ボルテージへ/);
+  s.pending.key='response:2';assert.equal(pendingNarration(s).kind,'response');
+  assert.match(pendingNarration(s,{key:'response:2'}).title,/技能の発動確認/);
+  s.pending={p:1,title:'相手が効果を選択中',options:[]};assert(!JSON.stringify(pendingNarration(s)).includes('5枚ドロー'));
+ }finally{globalThis.document=previous;}
+});
+
+
+test('相手の待機理由は種類だけ公開し、カード・技能名や選択肢を漏らさない',async()=>{
+ const {Game,view}=await import('../src/engine.js'),{pendingNarration}=await import('../src/presentation.js');
+ const g=new Game();g.s.players=[g.makePlayer({char:'c0',guns:['g0','g1'],skill:0},0),g.makePlayer({char:'c3',guns:['g3','g9'],skill:0},1)];g.s.phase='battle';
+ for(const [title,key,reason]of [['開始時に引き直す手札','choice:1','マリガン'],['使用する山札を選択（ドロー）','choice:2','山札の選択'],['秘密の技能名','response:3','対応の選択']]){
+  g.s.pending={p:1,title,key,options:[{label:'秘密のカード',value:'secret'}],min:1,max:1};
+  const s=view(g,0),shown=pendingNarration(s);assert.match(shown.title,new RegExp(reason));assert.equal(s.pending.options.length,0);assert(!JSON.stringify(s.pending).includes('秘密'));assert(!JSON.stringify(shown).includes('秘密'));
+ }
+});
