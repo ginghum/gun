@@ -15,3 +15,32 @@ test('対人部屋もエコ＋キヨヒメの偽造選択を拒否する',async(
  const r=await handle(req('/'+code+'/action',tokens[0],{id:'illegal-kiyohime',rev:d.rev,event:{p:0,key:q.key,value:'g7'}}),env);
  assert.equal(r.status,400);
 });
+
+test('同じ部屋の両者が合意すると編成から再試合し、旧操作・重複送信では再開始しない',async()=>{
+ for(const draft of [false,true]){
+ const env={BUCKET:new MemoryBucket()},ts=['1'.repeat(48),'2'.repeat(48)];
+ let d=await(await handle(req('',ts[0],{draft}),env)).json();const code=d.code;
+ await handle(req('/'+code+'/join',ts[1],{}),env);
+ for(let i=0;i<20;i++){
+  d=await(await handle(req('/'+code,ts[0]),env)).json();if(d.state.phase==='opening')break;
+  const p=d.state.pending.p,own=await(await handle(req('/'+code,ts[p]),env)).json(),q=own.state.pending;
+  await handle(req('/'+code+'/action',ts[p],{id:'select'+i,rev:d.rev,event:{p,key:q.key,value:q.options[0].value}}),env);
+ }
+ let r=await handle(req('/'+code+'/rematch',ts[0],{id:'early',round:0}),env);assert.equal(r.status,400);
+ d=await(await handle(req('/'+code+'/surrender',ts[1],{id:'surrender',rev:d.rev}),env)).json();
+ const rev=d.rev,oldKey='ready:0';
+ d=await(await handle(req('/'+code+'/rematch',ts[0],{id:'want0',round:0,rev}),env)).json();assert.equal(d.state.winner,0);assert.deepEqual(d.rematch,[true,false]);
+ const resumed=await(await handle(req('/'+code,ts[1]),env)).json();assert.deepEqual(resumed.rematch,[true,false]);
+ d=await(await handle(req('/'+code+'/rematch-cancel',ts[0],{id:'cancel',round:0}),env)).json();assert.deepEqual(d.rematch,[false,false]);
+ await handle(req('/'+code+'/rematch',ts[0],{id:'want-again',round:0}),env);
+ d=await(await handle(req('/'+code+'/rematch',ts[1],{id:'want1',round:0,rev}),env)).json();
+ assert.equal(d.code,code);assert.equal(d.round,1);assert.equal(d.joined,true);assert.equal(d.state.phase,'selection');assert.equal(d.state.winner,null);assert.equal(d.config.draft,draft);
+ const roundRev=d.rev;
+ d=await(await handle(req('/'+code+'/rematch',ts[1],{id:'want1',round:0}),env)).json();assert.equal(d.rev,roundRev);
+ r=await handle(req('/'+code+'/rematch',ts[0],{id:'stale',round:0}),env);assert.equal(r.status,409);
+ r=await handle(req('/'+code+'/action',ts[0],{id:'old-action',rev,event:{p:0,key:oldKey,value:'ready'}}),env);assert.equal(r.status,409);
+ d=await(await handle(req('/'+code,ts[0]),env)).json();const actor=d.state.pending.p;d=await(await handle(req('/'+code,ts[actor]),env)).json();const q=d.state.pending,value=draft?q.options.at(-1).value:'c1';
+ r=await handle(req('/'+code+'/action',ts[actor],{id:'new-char',rev:d.rev,event:{p:actor,key:q.key,value}}),env);assert.equal(r.status,200);
+ d=await r.json();if(!draft)assert.equal(d.state.selection[actor].char,value);
+}
+});

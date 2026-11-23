@@ -8,6 +8,20 @@ export async function handle(req,env){if(req.method==='OPTIONS')return reply({})
  for(let attempt=0;attempt<5;attempt++){const obj=await env.BUCKET.get(key);if(!obj)return reply({error:'部屋が見つかりません'},404);const room=await obj.json();if(room.expires<Date.now())return reply({error:'部屋の有効期限が切れました'},410);let seat=room.tokens.indexOf(token),changed=false;
  if(parts[1]==='join'&&req.method==='POST'){if(seat<0){if(room.tokens.length>=2)return reply({error:'この部屋は満員です'},409);room.tokens.push(token);seat=1;changed=true;}}
  if(seat<0)return reply({error:'この部屋の参加者ではありません'},403);
+ if(['rematch','rematch-cancel'].includes(parts[1])&&req.method==='POST'){
+  if(room.seen.includes(body.id))return reply(roomView(room,seat));
+  if(body.round!==(room.round||0))return reply({...roomView(room,seat),error:'次の試合に進みました'},409);
+  const game=replay(room.config,room.events);
+  if(room.tokens.length!==2||(room.surrendered===undefined&&game.s.winner===null))throw new Invalid('対戦終了後に再試合できます');
+  room.rematch??=[false,false];room.rematch[seat]=parts[1]==='rematch';
+  room.seen.push(body.id);room.seen=room.seen.slice(-100);
+  if(room.rematch.every(Boolean)){
+   room.round=(room.round||0)+1;room.events=[];delete room.surrendered;room.rematch=[false,false];
+   room.config={...room.config,seed:crypto.getRandomValues(new Uint32Array(1))[0]||1,draftGunCount:9,openingConfirm:true,firstTurnShotLimit:true,enforceBannedCombo:true};
+   delete room.config.lineups;
+  }
+  changed=true;
+ }
  if(['back','surrender'].includes(parts[1])&&req.method==='POST'){
   if(room.seen.includes(body.id))return reply(roomView(room,seat));
   if(body.rev!==room.rev)return reply({...roomView(room,seat),error:'盤面を更新しました。もう一度操作してください'},409);
@@ -29,4 +43,4 @@ export async function handle(req,env){if(req.method==='OPTIONS')return reply({})
  }catch(e){return reply({error:e instanceof Invalid||e instanceof SyntaxError?e.message:'対戦処理を完了できませんでした'},e instanceof Invalid||e instanceof SyntaxError?400:500);}}
 function roomView(r,seat){const game=r.tokens.length===2?replay(r.config,r.events):null,state=game?view(game,seat):null;
  if(state&&r.surrendered!==undefined){state.winner=1-r.surrendered;state.endReason='サレンダー';state.phase='battle';state.pending=null;state.log.push(state.players[r.surrendered].char.name+'がサレンダー');}
- return {version:VERSION,code:r.code,rev:r.rev,seat,joined:r.tokens.length===2,expires:r.expires,canBack:!!(game&&game.s.phase==='selection'&&game.s.pending?.p===seat&&r.events.at(-1)?.p===seat),config:{block:r.config.block,draft:r.config.draft},state};}
+ return {version:VERSION,code:r.code,rev:r.rev,round:r.round||0,rematch:r.rematch||[false,false],seat,joined:r.tokens.length===2,expires:r.expires,canBack:!!(game&&game.s.phase==='selection'&&game.s.pending?.p===seat&&r.events.at(-1)?.p===seat),config:{block:r.config.block,draft:r.config.draft},state};}
