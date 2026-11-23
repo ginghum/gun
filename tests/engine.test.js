@@ -112,3 +112,23 @@ test('ブレイク候補は公開ゾーンと装填先で区別し、伏せ札�
  const h=ready(),o=h.player(1),target=o.decks[0].shift();o.guns[0].ammo.push(target);
  h.ask=()=>[target.uid];h.destroy(0,1,1,true);assert(!o.guns[0].ammo.length);assert(o.discard.includes(target));
 });
+
+test('マカの防御に灰棄弾3枚を支払ってもボルテージへ戻らず、次のHITを受ける',()=>{
+ const g=ready();g.config.ashSourceLimit=true;g.s.active=0;const a=g.player(1);a.flags.makaGuard=true;
+ a.voltage=Array.from({length:3},(_,i)=>({uid:'ash'+i,name:'灰棄弾',owner:1,origin:'g15',face:false}));
+ const prompts=[];g.ask=(p,title,options)=>{prompts.push(title);return title==='破棄するボルテージ'?options.map(o=>o.value):true;};
+ g.hit(1,9,0);assert.equal(a.life,30);assert.equal(a.voltage.length,0);assert.equal(a.discard.length,3);assert(!prompts.includes('灰棄弾をボルテージへ置く？'));
+ g.hit(1,7,0);assert.equal(a.life,23);assert.equal(a.discard.length,3);
+});
+test('灰棄弾は相手ターンの手札・山札破棄だけVへ移せ、装填・対応・Vからは捨て札へ',()=>{
+ for(const source of ['hand','deck','ammo','responses','voltage'])for(const active of [0,1]){
+  const g=ready();g.config.ashSourceLimit=true;g.s.active=active;const a=g.player(1),c={uid:'ash',name:'灰棄弾',owner:1,origin:'g15',face:false};let prompts=0;
+  g.ask=()=>{prompts++;return true;};
+  if(source==='hand'){a.hand.push(c);g.trash(1,[c],a.hand);}
+  if(source==='deck'){a.decks[0].unshift(c);g.deckFor=()=>0;g.mill(1,1);}
+  if(source==='ammo'){a.guns[0].ammo.push(c);g.trashAmmo(1,[c]);}
+  if(source==='responses'){a.responses.push(c);g.trash(1,[c],a.responses);}
+  if(source==='voltage'){a.voltage.push(c);g.trash(1,[c],a.voltage);}
+  const yes=active===0&&['hand','deck'].includes(source);assert.equal(a.voltage.includes(c),yes,source+active);assert.equal(a.discard.includes(c),!yes);assert.equal(prompts,Number(yes));
+ }
+});
