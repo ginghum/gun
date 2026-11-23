@@ -95,3 +95,20 @@ test('ドラフトの選出後は技能と配置を並行選択し、相手の�
  for(let i=0;i<2;i++){const q=view(g,0).pending;events.push({p:0,key:q.key,value:0});g=replay(config,events);}
  assert.equal(g.s.phase,'battle');assert.deepEqual(g.s.players[1].guns.map(g=>g.id),original.reverse());
 });
+
+test('ブレイク候補は公開ゾーンと装填先で区別し、伏せ札の名前・所属・内部IDを表示しない',()=>{
+ const g=ready(),b=g.player(1),take=()=>b.decks[0].shift();
+ const back=take(),front=take(),v=take(),r=take();back.face=false;front.face=true;v.face=true;r.face=true;
+ b.guns[0].ammo=[back];b.guns[1].ammo=[front];b.voltage=[v];b.responses=[r];
+ assert.throws(()=>g.destroy(0,1,2,true));const q=g.s.pending;assert.match(q.title,/ブレイク対象.*最大2枚/);
+ const label=c=>q.options.find(o=>o.value===c.uid).label;
+ assert.match(label(back),/左のカサネ.*装填1.*通常弾/);assert(!label(back).includes(back.name));
+ assert.match(label(front),/右のハクメン/);assert(label(front).includes(front.name));
+ assert.match(label(v),/ボルテージ 1枚目/);assert(!label(v).includes(v.name));
+ assert.match(label(r),/セット対応 1枚目/);assert(!label(r).includes(r.name));
+ for(const c of [back,front,v,r])assert(!label(c).includes(c.uid));
+ assert.equal(view(g,0).pending.options.length,4);assert.equal(q.min,0);assert.equal(q.max,2);
+ // The same identities remain selectable and destruction moves only the selected cards.
+ const h=ready(),o=h.player(1),target=o.decks[0].shift();o.guns[0].ammo.push(target);
+ h.ask=()=>[target.uid];h.destroy(0,1,1,true);assert(!o.guns[0].ammo.length);assert(o.discard.includes(target));
+});

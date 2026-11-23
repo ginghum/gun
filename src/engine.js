@@ -69,7 +69,16 @@ export class Game {
  draw(p,n,rule=false,di=null,source='effect'){const a=this.player(p);if(n<=0||(!rule&&a.temp.noDraw))return;di??=this.deck(p);if(a.flags.maka===di||a.temp.poison===di)return;const list=a.decks[di].splice(0,n);a.hand.push(...list);if(list.length){this.change();this.emit(p,'draw',list.length+'枚ドロー',{count:list.length,gun:a.guns[di].id});}this.check();if(!list.length)return;
   const b=this.player(1-p);if(!rule&&source!=='char'&&source!=='group'&&this.enabled(1-p))for(const f of [...b.functions])if(f.name==='反応機構')this.trigger(1-p,'反応機構','hit',p,2);
   if(this.enabled(1-p)&&this.name(1-p)==='ロック'&&this.s.active===p&&source!=='rock')this.trigger(1-p,'ロック','rock',1-p,list.length);}
- pick(p,title,cards,min=1,max=1){min=Math.min(min,cards.length);max=Math.min(max,cards.length);if(!max)return [];const ids=this.ask(p,title,cards.map(c=>({value:c.uid,label:((c.owner!==p&&!c.face&&this.hidden(c))?'非公開カード '+c.uid:c.name)+(c.face?'［表］':'')})),{min,max,key:'cards'});return (Array.isArray(ids)?ids:[ids]).map(id=>cards.find(c=>c.uid===id));}
+ pick(p,title,cards,min=1,max=1){min=Math.min(min,cards.length);max=Math.min(max,cards.length);if(!max)return [];const ids=this.ask(p,title,cards.map(c=>({value:c.uid,label:this.cardChoiceLabel(p,c)})),{min,max,key:'cards'});return (Array.isArray(ids)?ids:[ids]).map(id=>cards.find(c=>c.uid===id));}
+ cardChoiceLabel(chooser,c){
+  if(c.owner===chooser)return c.name+(c.face?'［表］':'');
+  const a=this.player(c.owner),gi=a.guns.findIndex(g=>g.ammo.includes(c));
+  if(gi>=0)return `相手・${gi?'右':'左'}の${a.guns[gi].def.name} / 装填${a.guns[gi].ammo.indexOf(c)+1}：${c.face?c.name+'［表］':'通常弾［裏］'}`;
+  const vi=a.voltage.indexOf(c);if(vi>=0)return `相手のボルテージ ${vi+1}枚目［非公開］`;
+  const ri=a.responses.indexOf(c);if(ri>=0)return `相手のセット対応 ${ri+1}枚目［非公開］`;
+  if(a.functions.includes(c))return '相手の機能：'+c.name+(c.name==='モード：ファランクス'?'（破棄されません）':'');
+  return c.name+(c.face?'［表］':'');
+ }
  hidden(c){const a=this.player(c.owner);return a.voltage.includes(c)||a.responses.includes(c)||a.guns.some(g=>g.ammo.includes(c));}
  remove(zone,cards){for(const c of cards){const i=zone.indexOf(c);if(i>=0)zone.splice(i,1);}if(cards.length)this.change();}
  trash(p,cards,zone=null,reason='効果'){const handCount=zone===this.player(p).hand?cards.filter(c=>zone.includes(c)).length:0;if(zone)this.remove(zone,cards);for(const c of cards){c.face=false;const a=this.player(c.owner??p);if(c.name==='灰棄弾'&&this.s.active!==c.owner&&this.ask(c.owner,'灰棄弾をボルテージへ置く？',[{value:true,label:'ボルテージへ'},{value:false,label:'捨て札へ'}]))a.voltage.push(c);else a.discard.push(c);}if(cards.length)this.change();if(handCount)this.emit(p,'discard','手札'+handCount+'枚を破棄',{count:handCount,reason});this.check();}
@@ -185,7 +194,7 @@ export class Game {
  recover(p,n,pred=()=>true){const a=this.player(p),pool=a.discard.filter(pred),cs=this.pick(p,'手札へ回収',pool,Math.min(n,pool.length),n);this.remove(a.discard,cs);a.hand.push(...cs);if(cs.length)this.emit(p,'recover',cs.length+'枚を手札へ回収',{count:cs.length});}
  returnDiscard(p,n,pred=()=>true,optional=false){const a=this.player(p),pool=a.discard.filter(pred),cs=this.pick(p,'山札へ戻す捨て札',pool,optional?0:Math.min(n,pool.length),n);this.remove(a.discard,cs);this.recycle(p,cs);}
  trashAmmo(p,cs){for(const g of this.player(p).guns)this.remove(g.ammo,cs);this.trash(p,cs);}
- destroy(chooser,p,n,breakOnly=false){const a=this.player(p),pool=[...a.responses,...a.guns.flatMap(g=>g.ammo),...(breakOnly?a.voltage:[]),...a.functions.filter(c=>!breakOnly||this.card(c).cost<=1)];const cs=this.pick(chooser,'破棄する相手のカード',pool,breakOnly?0:Math.min(n,pool.length),n);for(const z of [a.responses,a.voltage,a.functions,...a.guns.map(g=>g.ammo)])this.remove(z,cs.filter(c=>c.name!=='モード：ファランクス'));this.trash(p,cs.filter(c=>c.name!=='モード：ファランクス'));}
+ destroy(chooser,p,n,breakOnly=false){const a=this.player(p),pool=[...a.responses,...a.guns.flatMap(g=>g.ammo),...(breakOnly?a.voltage:[]),...a.functions.filter(c=>!breakOnly||this.card(c).cost<=1)];const cs=this.pick(chooser,breakOnly?'ツエツキ：ブレイク対象（最大'+n+'枚）':'破棄する相手のカード',pool,breakOnly?0:Math.min(n,pool.length),n);for(const z of [a.responses,a.voltage,a.functions,...a.guns.map(g=>g.ammo)])this.remove(z,cs.filter(c=>c.name!=='モード：ファランクス'));this.trash(p,cs.filter(c=>c.name!=='モード：ファランクス'));}
  onFunction(p,c){const oc=this.ocName(c.name);if(oc)this.oc(p,oc);}
  effect(p,n){const a=this.player(p),b=this.player(1-p);const draw=x=>this.draw(p,x),hit=x=>this.hit(1-p,x,p),heal=x=>this.heal(p,x);const ex={'轟雷砲':['ヌエ',6],'ヘッドショット':['ダタラ',4],'亜空光線':['ウワン',3],'過焔地獄':['キヨヒメ',5]}[n];if(ex){const g=a.guns.find(g=>g.up&&g.def.name===ex[0]&&this.ammoCount(g)>=ex[1]);if(!g)return;this.trashAmmo(p,[...g.ammo]);}
  switch(n){
