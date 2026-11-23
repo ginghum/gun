@@ -481,3 +481,133 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none}body{height:100dv
 .battle-mode .duel{isolation:isolate;background:radial-gradient(ellipse at 12% 30%,#38636633,transparent 52%),radial-gradient(ellipse at 90% 75%,#73563033,transparent 50%),#101d23}.battle-mode .duel:before{content:'';position:absolute;inset:0;pointer-events:none;z-index:-1;background:radial-gradient(ellipse at 30% 40%,#8aa5a11c,transparent 40%),repeating-linear-gradient(110deg,transparent 0 70px,#d8c18b08 72px,transparent 74px);animation:field-haze 12s ease-in-out infinite alternate}.table-fx .muzzle-flare{fill:#fff4c3;filter:drop-shadow(0 0 12px #ffc96b);transform-box:fill-box;transform-origin:center;animation:muzzle-bloom .45s ease-out both}.table-fx .battle-spark{stroke:var(--fx-color);stroke-width:4;stroke-linecap:round;animation:spark-burst .8s calc(var(--j)*.025s) ease-out both;transform-box:fill-box;transform-origin:center}.table-fx .gun-smoke{fill:none;stroke:#e3e0c97a;stroke-width:12;filter:blur(5px);animation:smoke-rise 1.4s ease-out both}.table-fx .impact-shock{fill:none;stroke:#ffde98;stroke-width:5;animation:impact-shock .7s .15s ease-out both;transform-box:fill-box;transform-origin:center}.table-fx .hit-flash{position:absolute;left:30%;top:16%;width:40%;height:20%;background:radial-gradient(ellipse,#ffe3b966,transparent 68%);animation:hit-glow .6s both}.table-fx.from-self .hit-flash{top:64%}.table-fx .shot-trail{stroke-width:6;filter:drop-shadow(0 0 9px currentColor)}
 @keyframes field-haze{to{background-position:50px -20px;opacity:.45}}@keyframes muzzle-bloom{0%{opacity:0;scale:.2}15%{opacity:1;scale:1.3}100%{opacity:0;scale:.7}}@keyframes spark-burst{from{opacity:1;scale:.3}to{opacity:0;scale:1.5}}@keyframes smoke-rise{from{opacity:.8;translate:0 0}to{opacity:0;translate:0 -35px}}@keyframes impact-shock{from{opacity:1;scale:.2}to{opacity:0;scale:2}}@keyframes hit-glow{0%,100%{opacity:0}20%{opacity:1}}
 @media(prefers-reduced-motion:reduce){.battle-mode .duel:before{animation:none}.table-fx .battle-spark,.table-fx .gun-smoke,.table-fx .muzzle-flare,.table-fx .impact-shock{animation:none;opacity:.15}.table-fx .hit-flash{display:none}}
+
+/* Desktop duel: the board and hand share the left column; live decisions stay beside them. */
+@media (min-width:1000px) and (min-height:620px){
+ .battle-mode #app{
+  max-width:1560px;margin:0 auto;padding:10px 18px 12px;
+  grid-template-columns:minmax(0,1fr) clamp(310px,26vw,380px);
+  grid-template-rows:30px minmax(0,1fr) clamp(164px,21dvh,216px);
+  grid-template-areas:"toolbar toolbar" "board decision" "hand decision";gap:12px 20px;
+ }
+ .battle-mode .table-toolbar{grid-area:toolbar;margin:0;font-size:14px;min-width:0}
+ .battle-mode .duel{grid-area:board;padding:10px;grid-template-rows:minmax(0,1fr) 98px minmax(0,1fr);gap:4px;min-width:0}
+ .battle-mode .player,.battle-mode .player.active{grid-template-rows:minmax(0,1fr) 32px;gap:8px;padding:5px 4px;overflow:visible}
+ .battle-mode .combat-line{grid-template-columns:minmax(0,1fr) 154px minmax(0,1fr);gap:14px}
+ .battle-mode .combat-line>.gun,.battle-mode .combat-line>.gun:last-child,
+ .battle-mode .opponent .combat-line>.gun,.battle-mode .opponent .combat-line>.gun:last-child{
+  transform:none;grid-template-rows:20px minmax(38px,1fr) 16px 30px;gap:4px;padding:8px 12px;
+ }
+ .battle-mode .combat-line .gun-head,.battle-mode .combat-line .gun-head b{font-size:12px;min-height:20px;line-height:1.3}
+ .battle-mode .combat-line .gun-title{
+  display:grid;grid-template-columns:44px minmax(0,1fr);grid-template-rows:auto auto;
+  align-content:center;align-items:center;justify-items:start;justify-self:stretch;gap:2px 9px;
+  margin:0;padding:0;min-height:38px;overflow:visible;letter-spacing:0;text-align:left;
+ }
+ .battle-mode .combat-line .gun-title>.emblem{grid-column:1;grid-row:1/3;width:42px;height:42px}
+ .battle-mode .combat-line .gun-title>span{grid-column:2;font-size:clamp(17px,1.6vw,22px);line-height:1.3;overflow:visible;white-space:normal;overflow-wrap:anywhere}
+ .battle-mode .combat-line .gun-deck-count{grid-column:2;grid-row:2;margin:0;font-size:12px;line-height:1.3}
+ .battle-mode .ammo-meter{gap:5px;min-height:16px}
+ .battle-mode .ammo-meter i{height:9px}
+ .battle-mode .ammo-meter b{font-size:13px}
+ .battle-mode .gun-footer{overflow:visible;min-height:30px;gap:6px;font-size:12px}
+ .battle-mode .gun-footer button,.battle-mode .gun-footer .ammo-detail{font-size:12px;min-height:28px;padding:3px 6px;line-height:1.2;white-space:nowrap}
+ .battle-mode .combatant{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:16px 25px minmax(38px,1fr) 26px 16px;align-items:center;justify-items:center;align-content:center;gap:2px 5px;padding:6px;overflow:visible}
+ .battle-mode .combatant>small{display:block;grid-column:1/-1;font-size:11px}
+ .battle-mode .combatant>b{grid-column:1/-1;font-size:19px;line-height:1.3;overflow:visible}
+ .battle-mode .combatant .character-emblem{grid-column:1;grid-row:3;justify-self:end;min-height:0}
+ .battle-mode .combatant .character-emblem .emblem{width:40px;height:40px}
+ .battle-mode .combatant .life{grid-column:2;grid-row:3;justify-self:start;display:flex;flex-direction:column;align-items:center;gap:2px;height:auto;line-height:1}
+ .battle-mode .combatant .life small{font-size:9px}
+ .battle-mode .combatant .life b{font-size:31px;line-height:1}
+ .battle-mode .combatant .skill{grid-column:1/-1;grid-row:4;display:block;width:100%;height:auto;min-height:24px;font-size:11px;line-height:1.3;padding:3px;white-space:normal;overflow-wrap:anywhere;overflow:visible}
+ .battle-mode .combatant .conditions{grid-column:1/-1;grid-row:5;min-height:16px;gap:9px}
+ .battle-mode .conditions>[data-burn],.battle-mode .conditions>[data-shock]{font-size:12px;gap:3px}
+ .battle-mode .conditions svg{width:14px;height:14px}
+ .battle-mode .zones{gap:7px}
+ .battle-mode .zones .zone{flex:1 1 0;max-width:120px;padding:4px 6px;gap:5px}
+ .battle-mode .zone span,.battle-mode .zones .handcount{font-size:12px}
+ .battle-mode .zone b{font-size:18px}
+ .battle-mode .middle-line{height:auto}
+ .battle-mode .table-narration{left:14px;right:14px;top:50%;height:90px;padding:9px 12px;gap:12px}
+ .battle-mode #table-action{font-size:15px;line-height:1.4;text-align:left}
+ .battle-mode #action-explanation{font-size:13px;line-height:1.5;-webkit-line-clamp:2}
+ .battle-mode .replay-controls{gap:3px}
+ .battle-mode .replay-controls button{font-size:11px;min-height:23px;padding:3px 6px}
+ .battle-mode .hand-zone{grid-area:hand;grid-template-rows:28px minmax(0,1fr);gap:6px;padding:0 2px;min-width:0}
+ .battle-mode .hand-label{font-size:14px}
+ .battle-mode .hand{gap:10px;padding:3px 4px 7px}
+ .battle-mode .hand .card{flex:0 0 174px;width:174px;height:100%;padding:9px 10px}
+ .battle-mode .hand .card-top{font-size:12px;line-height:1.2}
+ .battle-mode .hand .card>strong{font-size:16px;line-height:1.4;margin:7px 0 5px}
+ .battle-mode .hand .origin-badge{font-size:12px;min-height:24px}
+ .battle-mode .hand .origin-badge .emblem{width:22px;height:22px}
+ .battle-mode .hand .card p{display:-webkit-box;font-size:12px;line-height:1.5;-webkit-line-clamp:3;margin-top:5px}
+ .battle-mode #decision{grid-area:decision;padding:14px;min-width:0;border-radius:6px;box-shadow:0 4px 20px #0004}
+ .battle-mode .main-decision{grid-template-rows:auto minmax(0,1fr);gap:14px}
+ .battle-mode .action-bar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .battle-mode .action-bar button{font-size:14px;min-height:40px;padding:8px;white-space:normal}
+ .battle-mode .end-turn{margin-left:0}
+ .battle-mode .card-dock{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:18px;margin:0;padding:16px 0 0;overflow:auto}
+ .battle-mode .card-dock>.muted{margin:0;padding:18px 5px;font-size:15px}
+ .battle-mode .card-dock .dock-copy{overflow:visible;flex:none}
+ .battle-mode .card-dock .dock-title strong{font-size:21px;line-height:1.5;white-space:normal;overflow-wrap:anywhere}
+ .battle-mode .card-dock .dock-copy p{font-size:16px;line-height:1.85;margin-top:14px}
+ .battle-mode .dock-actions{display:grid;grid-template-columns:1fr;gap:9px;flex:none;min-width:0}
+ .battle-mode .dock-actions button{font-size:15px;min-height:44px;padding:9px}
+ .battle-mode .choice-decision{grid-template-rows:auto minmax(0,1fr) auto;gap:14px}
+ .battle-mode .decision-heading{align-items:start;font-size:17px;line-height:1.5;gap:6px}
+ .battle-mode .decision-heading>b{overflow:visible;white-space:normal}
+ .battle-mode .paged-choices{grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:minmax(82px,max-content);align-content:start;gap:9px;overflow:auto}
+ .battle-mode .paged-choices .choice{display:block;min-height:82px;font-size:14px;line-height:1.6;padding:10px;overflow-wrap:anywhere;overflow:visible}
+ .battle-mode .choice-footer{gap:8px;font-size:13px;line-height:1.5;align-items:center}
+ .battle-mode .choice-footer>button{min-height:38px;font-size:14px;padding:7px 12px}
+ .battle-mode .skill-confirm{grid-template-rows:auto minmax(0,1fr) auto;gap:14px}
+ .battle-mode .skill-confirm-title{flex-wrap:wrap;line-height:1.5}
+ .battle-mode .skill-confirm-copy{overflow:auto}
+ .battle-mode .skill-confirm-copy strong{font-size:21px}
+ .battle-mode .skill-confirm-copy p{font-size:16px;line-height:1.8}
+}
+@media (min-width:1000px) and (min-height:620px) and (max-height:800px){
+ .battle-mode #app{grid-template-columns:minmax(0,1fr) clamp(290px,26vw,350px);grid-template-rows:28px minmax(0,1fr) 148px;gap:9px 16px;padding:7px 14px 9px}
+ .battle-mode .duel{grid-template-rows:minmax(0,1fr) 82px minmax(0,1fr);padding:6px;gap:2px}
+ .battle-mode .player,.battle-mode .player.active{grid-template-rows:minmax(0,1fr) 28px;gap:5px;padding:3px}
+ .battle-mode .combat-line{grid-template-columns:minmax(0,1fr) 132px minmax(0,1fr);gap:10px}
+ .battle-mode .combat-line>.gun,.battle-mode .combat-line>.gun:last-child,.battle-mode .opponent .combat-line>.gun,.battle-mode .opponent .combat-line>.gun:last-child{grid-template-rows:16px minmax(32px,1fr) 12px 26px;gap:3px;padding:5px 8px}
+ .battle-mode .combat-line .gun-head,.battle-mode .combat-line .gun-head b{font-size:11px;min-height:16px}
+ .battle-mode .combat-line .gun-title{grid-template-columns:32px minmax(0,1fr);min-height:32px;gap:0 6px}
+ .battle-mode .combat-line .gun-title>.emblem{width:30px;height:30px}
+ .battle-mode .combat-line .gun-title>span{font-size:17px;line-height:1.3}
+ .battle-mode .combat-line .gun-deck-count{font-size:10px}
+ .battle-mode .gun-footer button,.battle-mode .gun-footer .ammo-detail{min-height:24px;font-size:11px;padding:3px}
+ .battle-mode .combatant{grid-template-rows:22px minmax(32px,1fr) 24px 14px;padding:4px;gap:1px 4px}
+ .battle-mode .combatant>small{display:none}
+ .battle-mode .combatant>b{grid-row:1;font-size:17px}
+ .battle-mode .combatant .character-emblem,.battle-mode .combatant .life{grid-row:2}
+ .battle-mode .combatant .character-emblem .emblem{width:33px;height:33px}
+ .battle-mode .combatant .life b{font-size:27px}
+ .battle-mode .combatant .skill{grid-row:3;font-size:10px;min-height:22px;padding:2px}
+ .battle-mode .combatant .conditions{grid-row:4;min-height:14px}
+ .battle-mode .conditions>[data-burn],.battle-mode .conditions>[data-shock]{font-size:11px}
+ .battle-mode .zones .zone{padding:3px}
+ .battle-mode .zone span,.battle-mode .zones .handcount{font-size:11px}
+ .battle-mode .zone b{font-size:16px}
+ .battle-mode .table-narration{height:76px;left:10px;right:10px;padding:6px 9px}
+ .battle-mode #table-action{font-size:14px}
+ .battle-mode #action-explanation{font-size:12px}
+ .battle-mode .hand-zone{grid-template-rows:24px minmax(0,1fr);gap:3px}
+ .battle-mode .hand .card{flex-basis:157px;width:157px;padding:6px 8px}
+ .battle-mode .hand .card>strong{font-size:15px;margin:5px 0 3px}
+ .battle-mode .hand .card p{font-size:11px;-webkit-line-clamp:2;line-height:1.4;margin-top:3px}
+ .battle-mode .hand .origin-badge{font-size:11px;min-height:20px}
+}
+@media (min-width:1000px) and (min-height:620px) and (max-height:700px){
+ .battle-mode #app{grid-template-rows:26px minmax(0,1fr) 126px;gap:7px 14px;padding:6px 12px 8px}
+ .battle-mode .duel{grid-template-rows:minmax(0,1fr) 72px minmax(0,1fr)}
+ .battle-mode .player,.battle-mode .player.active{grid-template-rows:minmax(0,1fr) 26px;gap:4px;padding:2px}
+ .battle-mode .combatant{grid-template-rows:20px minmax(32px,1fr) 23px 14px}
+ .battle-mode .table-narration{height:68px;padding:5px 8px}
+ .battle-mode .hand-zone{grid-template-rows:22px minmax(0,1fr)}
+ .battle-mode .hand .card p{display:none}
+ .battle-mode #action-explanation{font-size:12px;-webkit-line-clamp:2}
+}
