@@ -621,3 +621,9 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none}body{height:100dv
 .battle-mode .fire-locked{border-color:#b56c62!important;border-top-color:#d67c6e!important}
 .battle-mode .fire-locked .gun-fire,.battle-mode .fire-locked .gun-footer>span:last-child{color:#9b302b!important;background:#f4d6cc;border-color:#9b302b;opacity:1;font-weight:700;border-radius:3px;padding:2px 5px}
 @media(max-width:699px){.table-narration #restriction-overview .restriction-chip{font-size:10px;min-height:19px;padding:1px 4px;line-height:1.4}.table-narration.has-restrictions #table-action{font-size:11px;line-height:1.3}.table-narration.has-restrictions .action-copy{gap:2px}#restriction-overview{gap:2px}.battle-mode .fire-locked .gun-footer>span:last-child{font-size:8px}}
+
+/* A quiet edge cue leaves the choice text and the existing pager unobstructed. */
+.swipe-choices .paged-choices{position:relative;touch-action:pan-y;user-select:none;-webkit-user-select:none;padding-inline:13px}
+.swipe-choices .paged-choices:before,.swipe-choices .paged-choices:after{position:absolute;top:50%;transform:translateY(-50%);font-size:18px;line-height:1;color:#d8eeeb;opacity:.38;pointer-events:none;z-index:2}
+.swipe-choices[data-swipe-prev="true"] .paged-choices:before{content:'←';left:0}
+.swipe-choices[data-swipe-next="true"] .paged-choices:after{content:'→';right:0}

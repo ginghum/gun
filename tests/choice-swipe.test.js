@@ -1,0 +1,19 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {installChoiceSwipe} from '../src/presentation.js';
+
+test('選択肢のスワイプは往復・端でも誤決定せず、タップと縦移動は妨げない',()=>{
+ const listeners={},panel={classList:{contains:()=>true},setPointerCapture(){},addEventListener(type,fn){(listeners[type]??=[]).push(fn);}};
+ let page=0,picks=0;
+ const emit=(type,x,y=0)=>{const e={pointerId:1,button:0,clientX:x,clientY:y,target:{closest:()=>true},preventDefault(){this.defaultPrevented=true;},stopImmediatePropagation(){this.stopped=true;}};for(const f of listeners[type]||[])f(e);if(type==='click'&&!e.stopped)picks++;return e;};
+ const install=()=>installChoiceSwipe(panel,d=>{page=Math.max(0,Math.min(1,page+d));install();});install();
+ emit('pointerdown',150);emit('pointermove',50);emit('pointerup',50);assert.equal(page,1);assert.ok(emit('click',50).defaultPrevented);assert.equal(picks,0);
+ emit('pointerdown',150);emit('pointermove',50);emit('pointerup',50);assert.equal(page,1);emit('click',50);assert.equal(picks,0);
+ emit('pointerdown',50);emit('pointermove',150);emit('pointerup',150);assert.equal(page,0);emit('click',150);assert.equal(picks,0);
+ assert.equal(listeners.pointerdown.length,1,'再描画でイベントを重複登録しない');
+ const other={...panel,addEventListener(type,fn){(other.listeners[type]??=[]).push(fn);},listeners:{}};installChoiceSwipe(other,()=>assert.fail('タップ・縦移動・キャンセルでは切り替えない'));
+ const send=(type,x,y=0)=>{const e={pointerId:1,button:0,clientX:x,clientY:y,target:{closest:()=>true},preventDefault(){this.prevented=true;},stopImmediatePropagation(){}};for(const f of other.listeners[type]||[])f(e);return e;};
+ send('pointerdown',50);send('pointerup',50);assert.ok(!send('click',50).prevented);
+ send('pointerdown',50);send('pointermove',55,80);send('pointerup',55,80);
+ send('pointerdown',50);send('pointermove',150);send('pointercancel',150);send('pointerup',150);
+});

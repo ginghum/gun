@@ -54,3 +54,31 @@ export function isSkillActivation(value,q){return q?.title==='メインフェイ
 export function automaticPaymentIndices(q){if(q?.title!=='支払うボルテージ'||!Number.isInteger(q.min)||q.min<1||q.min>q.options.length)return [];return Array.from({length:q.min},(_,i)=>i);}
 export function spectacleKind(e){if(e.type==='fire')return 'fire';if(e.type==='skill')return 'skill';if(e.overclock)return 'overclock';if(['轟雷砲','ヘッドショット','亜空光線','過焔地獄','一気討殲','アルマゲドン','シャット・ダウン','ビッグバン'].includes(e.name))return 'special';return e.type==='hit'?'hit':null;}
 export function spectacleSVG(kind,own){const y=kind==='fire'?(own?100:500):(own?460:140);const rays=Array.from({length:20},(_,i)=>{const a=i*Math.PI/10,r=kind==='hit'?65:110,x=500+Math.cos(a)*r,sy=y+Math.sin(a)*r*.6;return `<path class="burst-ray" style="--j:${i}" d="M${x} ${sy}l${Math.cos(a)*260} ${Math.sin(a)*150}"/>`;}).join('');return `<svg class="spectacle spectacle-${kind}" viewBox="0 0 1000 600" preserveAspectRatio="none"><ellipse class="burst-halo" cx="500" cy="${y}" rx="190" ry="100"/><ellipse class="burst-wave" cx="500" cy="${y}" rx="110" ry="65"/>${rays}${kind==='skill'?`<path class="burst-seal" d="M500 ${y-130}l160 130-160 130-160-130Z"/>`:kind==='overclock'?`<path class="burst-seal" d="M300 ${y-80}h400v160H300Z M350 ${y-110}v220 M650 ${y-110}v220"/>`:''}</svg>`;}
+
+// Keep the gesture and click guard on the stable decision panel, even when its choices rerender.
+const choiceSwipes=new WeakMap();
+export function installChoiceSwipe(panel,onPage){
+ const existing=choiceSwipes.get(panel);if(existing){existing.onPage=onPage;existing.drag=null;return;}
+ const ctx={onPage,drag:null,suppressUntil:0};choiceSwipes.set(panel,ctx);
+ panel.addEventListener('pointerdown',e=>{
+  if(e.isPrimary===false||e.button>0||!panel.classList.contains('swipe-choices')||!e.target.closest('.paged-choices'))return;
+  ctx.drag={id:e.pointerId,x:e.clientX,y:e.clientY,moved:false};
+ });
+ panel.addEventListener('pointermove',e=>{
+  const d=ctx.drag;if(!d||d.id!==e.pointerId)return;
+  const x=e.clientX-d.x,y=e.clientY-d.y;
+  if(!d.moved&&Math.abs(y)>12&&Math.abs(y)>Math.abs(x)){ctx.drag=null;return;}
+  if(!d.moved&&Math.abs(x)>12&&Math.abs(x)>Math.abs(y)*1.3){d.moved=true;panel.setPointerCapture(e.pointerId);}
+  if(d.moved)e.preventDefault();
+ });
+ panel.addEventListener('pointerup',e=>{
+  const d=ctx.drag;if(!d||d.id!==e.pointerId)return;ctx.drag=null;
+  if(!d.moved)return;
+  ctx.suppressUntil=Date.now()+450;e.preventDefault();
+  const x=e.clientX-d.x,y=e.clientY-d.y;
+  if(Math.abs(x)>=40&&Math.abs(x)>Math.abs(y)*1.3)ctx.onPage(x<0?1:-1);
+ });
+ const cancel=()=>{if(ctx.drag?.moved)ctx.suppressUntil=Date.now()+450;ctx.drag=null;};
+ panel.addEventListener('pointercancel',cancel);panel.addEventListener('lostpointercapture',cancel);
+ panel.addEventListener('click',e=>{if(Date.now()<ctx.suppressUntil){e.preventDefault();e.stopImmediatePropagation();}},true);
+}
