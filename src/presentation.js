@@ -57,11 +57,11 @@ export function spectacleSVG(kind,own){const y=kind==='fire'?(own?100:500):(own?
 
 // Keep the gesture and click guard on the stable decision panel, even when its choices rerender.
 const choiceSwipes=new WeakMap();
-export function installChoiceSwipe(panel,onPage){
- const existing=choiceSwipes.get(panel);if(existing){existing.onPage=onPage;existing.drag=null;return;}
- const ctx={onPage,drag:null,suppressUntil:0};choiceSwipes.set(panel,ctx);
+export function installChoiceSwipe(panel,onPage,surface='.paged-choices'){
+ const existing=choiceSwipes.get(panel);if(existing){existing.onPage=onPage;existing.surface=surface;existing.drag=null;return;}
+ const ctx={onPage,surface,drag:null,suppressUntil:0};choiceSwipes.set(panel,ctx);
  panel.addEventListener('pointerdown',e=>{
-  if(e.isPrimary===false||e.button>0||!panel.classList.contains('swipe-choices')||!e.target.closest('.paged-choices'))return;
+  if(e.isPrimary===false||e.button>0||!panel.classList.contains('swipe-choices')||!e.target.closest(ctx.surface))return;
   ctx.drag={id:e.pointerId,x:e.clientX,y:e.clientY,moved:false};
  });
  panel.addEventListener('pointermove',e=>{

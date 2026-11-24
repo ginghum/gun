@@ -27,3 +27,12 @@ test('タッチの暗黙キャプチャが選択ボタンから親へ移って�
  emit('pointerdown');emit('pointermove',button,60);emit('pointerup',panel,60);assert.equal(pages,1);
  emit('pointerdown');emit('pointermove',button,60);emit('lostpointercapture',panel,60);emit('pointerup',panel,60);assert.equal(pages,1,'親自体のキャプチャ喪失時はキャンセルする');
 });
+
+test('選出・カード一覧・説明の操作面を切り替えても、外側や無効な画面ではページを動かさない',()=>{
+ const listeners={};let active=true,pages=0;
+ const panel={classList:{contains:()=>active},setPointerCapture(){},addEventListener(t,f){(listeners[t]??=[]).push(f);}};
+ const swipe=selector=>{const target={closest:s=>s===selector};for(const [type,x] of [['pointerdown',150],['pointermove',50],['pointerup',50]])for(const f of listeners[type]||[])f({target,pointerId:1,button:0,clientX:x,clientY:100,preventDefault(){}});};
+ for(const selector of ['.choices','#catalog-content','.reader-body']){installChoiceSwipe(panel,()=>pages++,selector);swipe(selector);}
+ assert.equal(pages,3);swipe('.choices');assert.equal(pages,3,'古い画面の操作面は反応しない');
+ active=false;swipe('.reader-body');assert.equal(pages,3);assert.equal(listeners.pointerdown.length,1);
+});
