@@ -1,6 +1,6 @@
 // Original SVG emblems. Colors reference official character art (see docs/decisions.md); artwork is not redistributed.
 const CHAR_EMBLEMS = {
- c0: ['#c9a3ff','火花', '<path d="M33 8 23 27h9l-4 17 16-23H33l5-13Z"/><path d="m14 15 4 5m26 21 5 3M10 33h7m29-22-4 6"/>'],
+ c0: ['#d8f6ff','火花', '<path d="M33 8 23 27h9l-4 17 16-23H33l5-13Z"/><path d="m14 15 4 5m26 21 5 3M10 33h7m29-22-4 6"/>'],
  c1: ['#bba8e2','薬瓶', '<path d="M25 9h14m-12 0v12L17 41q-2 5 4 5h22q6 0 4-5L37 21V9M22 32h20"/><path d="M32 33v9m-4-5h8"/>'],
  c2: ['#d49bea','拳とハート', '<path d="M19 31v-9q0-5 5-3v-4q3-5 6 0 3-5 6 0 4-4 7 1v18l-7 12H23l-7-11q-3-7 3-8l8 9"/><path d="M12 13q-7-8-10 0 0 4 10 11 10-7 10-11-3-8-10 0Z" transform="translate(11 0) scale(.6)"/>'],
  c3: ['#c6b7b2','照準', '<circle cx="32" cy="28" r="16"/><circle cx="32" cy="28" r="7"/><path d="M32 7v9m0 24v10M11 28h9m24 0h9m-8 14 7 7"/>'],
@@ -33,5 +33,7 @@ const GUN_EMBLEMS = {
  g16:['#d5aa80','燃える歯車','<path d="m29 7 4 8 8-4 2 9 9 2-4 8 8 4-8 6 3 8-10 0-5 9-6-8-9 3-1-10-10-4 7-7-5-9 10-1Z"/><path d="M32 22c10 9 9 17 0 18-10-1-7-11 0-18Z"/>'],
  g17:['#a8acd4','パルスの回路','<path d="M7 30h12l6-14 10 29 6-15h16M10 12h12m20 0h12M10 48h12m20 0h12"/><circle cx="9" cy="12" r="2"/><circle cx="55" cy="48" r="2"/>']
 };
-export function emblem(kind,id){const entry=(kind==='character'?CHAR_EMBLEMS:GUN_EMBLEMS)[id];if(!entry)return '';const [color,label,paths]=entry;return `<svg class="emblem emblem-${kind}" viewBox="0 0 64 64" aria-hidden="true" focusable="false" style="--emblem-color:${color}"><title>${label}</title><rect class="emblem-bg" x="2" y="2" width="60" height="60" rx="12"/><g fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${paths}</g></svg>`;}
+export function emblem(kind,id){const entry=(kind==='character'?CHAR_EMBLEMS:GUN_EMBLEMS)[id];if(!entry)return '';const [color,label,paths]=entry;return `<svg class="emblem emblem-${kind}" viewBox="0 0 64 64" aria-hidden="true" focusable="false" style="--emblem-color:${color}"><rect class="emblem-bg" x="2" y="2" width="60" height="60" rx="12"/><g fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${paths}</g></svg>`;}
 export const EMBLEM_COUNTS={characters:Object.keys(CHAR_EMBLEMS).length,guns:Object.keys(GUN_EMBLEMS).length};
+
+export function characterColor(id){return CHAR_EMBLEMS[id]?.[0]||'#d8f6ff';}

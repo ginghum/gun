@@ -39,3 +39,10 @@ test('相手の待機理由は種類だけ公開し、カード・技能名や�
   const s=view(g,0),shown=pendingNarration(s);assert.match(shown.title,new RegExp(reason));assert.equal(s.pending.options.length,0);assert(!JSON.stringify(s.pending).includes('秘密'));assert(!JSON.stringify(shown).includes('秘密'));
  }
 });
+
+test('手番の表示色と自分・相手の区別は解決中のフレームに追随する',async()=>{
+ const {turnAppearance}=await import('../src/presentation.js'),{emblem}=await import('../src/logos.js');
+ const state={seat:0,players:[{char:{id:'c0',name:'ヒバナ'}},{char:{id:'c4',name:'アマタ'}}]};
+ assert.deepEqual(turnAppearance({active:0,turn:1},state),{color:'#d8f6ff',label:'自分のターン / 第1ターン / ヒバナ'});
+ const next=turnAppearance({active:1,turn:2},state);assert.equal(next.color,'#f28b53');assert.match(next.label,/相手のターン/);assert(!emblem('character','c0').includes('<title>'));
+});

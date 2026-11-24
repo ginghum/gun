@@ -57,3 +57,16 @@ test('同時編成の更新は相手側の更新番号が進んでも受理し�
  const other=await(await handle(req('/'+code,ts[1]),env)).json();assert.equal(other.state.selection[1].char,'c1');
  assert.equal((await handle(req('/'+code+'/action',ts[0],{...bodies[0],id:'wrong-round',round:99}),env)).status,409);
 });
+
+test('対人のおすすめ編成は両者に合法な編成を配り、秘匿・再接続・再試合を維持する',async()=>{
+ const env={BUCKET:new MemoryBucket()},tokens=['a'.repeat(48),'b'.repeat(48)];
+ const created=await (await handle(req('',tokens[0],{recommended:true}),env)).json(),path='/'+created.code;
+ let second=await (await handle(req(path+'/join',tokens[1],{}),env)).json(),first=await (await handle(req(path,tokens[0]),env)).json();
+ assert.equal(first.config.recommended,true);assert.equal(first.state.phase,'opening');assert.equal(first.state.config.cpu,undefined);
+ for(const [p,d] of [first,second].entries()){assert.equal(d.state.players[p].guns.length,2);assert(d.state.players[p].guns.some(g=>g.def.kind==='ライト'));assert.equal(d.state.players[1-p].skill,null);}
+ assert.notEqual(first.state.players[0].char.id,first.state.players[1].char.id);
+ assert.deepEqual((await (await handle(req(path,tokens[0]),env)).json()).state,first.state);
+ await handle(req(path+'/surrender',tokens[0],{id:'stop',rev:first.rev}),env);
+ for(let p=0;p<2;p++){const r=await handle(req(path+'/rematch',tokens[p],{id:'again'+p,round:0}),env);assert.equal(r.status,200);}
+ first=await (await handle(req(path,tokens[0]),env)).json();assert.equal(first.round,1);assert.equal(first.config.recommended,true);assert.equal(first.state.phase,'opening');assert.equal(first.state.pending.title,'開始条件を確認');
+});

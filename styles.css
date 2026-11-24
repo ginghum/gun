@@ -631,3 +631,23 @@ html,body{height:100%;overflow:hidden;overscroll-behavior:none}body{height:100dv
 .swipe-choices .selection-grid.swipe-surface,.swipe-choices #catalog-content.swipe-surface,.swipe-choices .reader-body.swipe-surface{padding-inline:18px;box-sizing:border-box}
 /* Reserve reader cue space before measuring text pagination as well. */
 .reader-body{padding-inline:18px;box-sizing:border-box}
+
+/* Keep accidental text selection out of card play; editable fields remain usable. */
+body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+input,textarea,[contenteditable="true"]{-webkit-user-select:text;user-select:text}
+.emblem{pointer-events:none}
+.catalog-stacked{grid-template-rows:auto minmax(0,1fr)!important;height:100%;min-height:0}
+.catalog-stacked #catalog-content{display:block;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;padding:0 6px 16px 0}
+.catalog-group{display:flex;flex-direction:column;gap:8px;margin:0 0 18px}
+.catalog-group>h3{font-size:16px;margin:6px 0;color:#e2c78f}
+.catalog-group>h3 small{font-size:12px;color:#acbdc0;margin-left:8px}
+.catalog-stacked .catalog-index{min-height:70px;flex:none;padding:10px;gap:12px;text-align:left}
+.catalog-stacked .catalog-index>span{min-width:0}
+.catalog-stacked .catalog-index b{font-size:17px;white-space:normal;overflow-wrap:anywhere}
+.catalog-stacked .catalog-index small{font-size:12px;line-height:1.5;white-space:normal}
+body.battle-mode{background:radial-gradient(ellipse at 50% 20%,color-mix(in srgb,var(--turn-color,#d8f6ff) 12%,#14191e),#14191e 75%)}
+.battle-mode .duel{border-color:var(--turn-color,#d8f6ff);box-shadow:0 0 22px color-mix(in srgb,var(--turn-color,#d8f6ff) 20%,transparent);transition:border-color .4s,box-shadow .4s}
+.battle-mode .table-toolbar{border-left:4px solid var(--turn-color,#d8f6ff);background:linear-gradient(90deg,color-mix(in srgb,var(--turn-color,#d8f6ff) 17%,#14191e),transparent);padding-left:8px}
+.battle-mode [data-turn-label]{color:var(--turn-color,#d8f6ff);font-weight:bold;line-height:1.45;white-space:normal;font-size:clamp(10px,1.2vw,14px)}
+.battle-mode .player.active .combatant{border-color:var(--turn-color,#d8f6ff);background:linear-gradient(145deg,color-mix(in srgb,var(--turn-color,#d8f6ff) 22%,#15242b),#15242b);box-shadow:0 0 14px color-mix(in srgb,var(--turn-color,#d8f6ff) 23%,transparent)}
+@media(prefers-reduced-motion:reduce){.battle-mode .duel{transition:none}}
