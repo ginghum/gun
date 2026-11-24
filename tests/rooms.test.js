@@ -70,3 +70,12 @@ test('対人のおすすめ編成は両者に合法な編成を配り、秘匿�
  for(let p=0;p<2;p++){const r=await handle(req(path+'/rematch',tokens[p],{id:'again'+p,round:0}),env);assert.equal(r.status,200);}
  first=await (await handle(req(path,tokens[0]),env)).json();assert.equal(first.round,1);assert.equal(first.config.recommended,true);assert.equal(first.state.phase,'opening');assert.equal(first.state.pending.title,'開始条件を確認');
 });
+
+test('対人の初期ドローは同時に選べ、相手の先行更新後も自分の選択を受理する',async()=>{
+ const env={BUCKET:new MemoryBucket()},tokens=['a'.repeat(48),'b'.repeat(48)],d=await (await handle(req('',tokens[0],{recommended:true}),env)).json(),path='/'+d.code;
+ await handle(req(path+'/join',tokens[1],{}),env);
+ for(let p=0;p<2;p++){const own=await (await handle(req(path,tokens[p]),env)).json(),q=own.state.pending;const r=await handle(req(path+'/action',tokens[p],{id:'ready'+p,rev:own.rev,round:own.round,event:{p,key:q.key,value:'ready'}}),env);assert.equal(r.status,200);}
+ const snapshots=await Promise.all(tokens.map(async t=>(await handle(req(path,t),env)).json()));
+ for(let p=0;p<2;p++){const own=snapshots[p],q=own.state.pending;assert.equal(q.p,p);assert.match(q.title,/初期ドロー/);assert.equal(own.state.players[p].hand.length,0);}
+ for(const p of [1,0]){const own=snapshots[p],q=own.state.pending,r=await handle(req(path+'/action',tokens[p],{id:'draw'+p,rev:own.rev,round:own.round,event:{p,key:q.key,value:q.options[0].value}}),env);assert.equal(r.status,200);const after=await r.json();if(p===1)assert.equal(after.state.players[1].hand.length,0);else assert(after.state.feed.filter(e=>e.type==='draw').length>=2);}
+});

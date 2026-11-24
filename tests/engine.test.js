@@ -141,3 +141,18 @@ test('操作制限は現在・次手番・銃別・恒久を分け、解除後�
  assert.equal(restrictionState(g.s)[0].length,0);assert(frame.players[0].restrictions.some(x=>x.key==='noFire'));
  g.s.active=0;a.counts.actions=1;b.functions.push({name:'ノイズジェネレーター'});assert(restrictionState(g.s)[0].some(x=>x.key==='noise'));b.temp.nullified=true;assert(!restrictionState(g.s)[0].some(x=>x.key==='noise'));
 });
+
+test('初期ドローの山札は両者同時に選択し、両手札確定後にロックが先後を問わず追加ドローする',()=>{
+ for(const opponent of ['c0','c1','c11']){
+  const config={seed:52,simultaneousOpening:true,lineups:[{char:'c11',guns:['g0','g1'],skill:0},{char:opponent,guns:['g3','g4'],skill:0}]},events=[];
+  let g=replay(config,events);assert(g.s.pendings[0]&&g.s.pendings[1]);assert.deepEqual(g.s.players.map(p=>p.hand.length),[0,0]);
+  const a=g.s.pendings[0],b=g.s.pendings[1];events.push({p:1,key:b.key,value:1});g=replay(config,events);assert.deepEqual(g.s.players.map(p=>p.hand.length),[0,0]);assert.equal(g.s.pendings[0].key,a.key);
+  events.push({p:0,key:a.key,value:0});g=replay(config,events);
+  assert.equal(g.player(0).hand.length,2);assert.equal(g.player(1).hand.length,CS.find(c=>c.id===opponent).hand);
+  const baseDraws=g.s.feed.filter(e=>e.type==='draw');assert.equal(baseDraws.length,2,'追加分は基礎ドロー2件の後');
+  for(let i=0;i<(opponent==='c11'?2:1);i++){const rock=g.s.pending;assert.match(rock.title,/山札/);events.push({p:rock.p,key:rock.key,value:0});g=replay(config,events);}
+  assert.equal(g.player(0).hand.length,Math.min(6,2+CS.find(c=>c.id===opponent).hand));
+  if(opponent==='c11')assert.equal(g.player(1).hand.length,4);
+  assert.equal(g.s.pending.title,'メインフェイズ');assert.deepEqual(replay(config,events).s,g.s);
+ }
+});
