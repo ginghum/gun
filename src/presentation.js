@@ -79,6 +79,9 @@ export function installChoiceSwipe(panel,onPage){
   if(Math.abs(x)>=40&&Math.abs(x)>Math.abs(y)*1.3)ctx.onPage(x<0?1:-1);
  });
  const cancel=()=>{if(ctx.drag?.moved)ctx.suppressUntil=Date.now()+450;ctx.drag=null;};
- panel.addEventListener('pointercancel',cancel);panel.addEventListener('lostpointercapture',cancel);
+ panel.addEventListener('pointercancel',cancel);
+ // Touch starts with implicit capture on the tapped button. Its capture-loss bubbles
+ // when the panel takes over; that is a transfer, not cancellation of the swipe.
+ panel.addEventListener('lostpointercapture',e=>{if(e.target===panel)cancel();});
  panel.addEventListener('click',e=>{if(Date.now()<ctx.suppressUntil){e.preventDefault();e.stopImmediatePropagation();}},true);
 }

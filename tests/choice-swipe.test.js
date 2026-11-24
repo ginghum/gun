@@ -17,3 +17,13 @@ test('選択肢のスワイプは往復・端でも誤決定せず、タップ�
  send('pointerdown',50);send('pointermove',55,80);send('pointerup',55,80);
  send('pointerdown',50);send('pointermove',150);send('pointercancel',150);send('pointerup',150);
 });
+
+
+test('タッチの暗黙キャプチャが選択ボタンから親へ移ってもスワイプを継続する',()=>{
+ const listeners={},button={closest:()=>true};let pages=0;
+ const panel={classList:{contains:()=>true},addEventListener(t,f){(listeners[t]??=[]).push(f);},setPointerCapture(){emit('lostpointercapture',button);}};
+ const emit=(type,target=button,x=150)=>{const e={target,pointerType:'touch',pointerId:7,isPrimary:true,button:0,clientX:x,clientY:100,preventDefault(){},stopImmediatePropagation(){}};for(const f of listeners[type]||[])f(e);};
+ installChoiceSwipe(panel,d=>pages+=d);
+ emit('pointerdown');emit('pointermove',button,60);emit('pointerup',panel,60);assert.equal(pages,1);
+ emit('pointerdown');emit('pointermove',button,60);emit('lostpointercapture',panel,60);emit('pointerup',panel,60);assert.equal(pages,1,'親自体のキャプチャ喪失時はキャンセルする');
+});
