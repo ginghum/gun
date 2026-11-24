@@ -651,3 +651,43 @@ body.battle-mode{background:radial-gradient(ellipse at 50% 20%,color-mix(in srgb
 .battle-mode [data-turn-label]{color:var(--turn-color,#d8f6ff);font-weight:bold;line-height:1.45;white-space:normal;font-size:clamp(10px,1.2vw,14px)}
 .battle-mode .player.active .combatant{border-color:var(--turn-color,#d8f6ff);background:linear-gradient(145deg,color-mix(in srgb,var(--turn-color,#d8f6ff) 22%,#15242b),#15242b);box-shadow:0 0 14px color-mix(in srgb,var(--turn-color,#d8f6ff) 23%,transparent)}
 @media(prefers-reduced-motion:reduce){.battle-mode .duel{transition:none}}
+/* Desktop loadout: reserve readable space for both picks and the draft overview. */
+@media(min-width:1000px){
+ .loadout-screen.selection{max-width:1600px;width:100%}
+ .loadout-screen .loadout-layout{grid-template-columns:minmax(0,1fr) clamp(340px,28vw,440px);gap:22px}
+ .loadout-screen .selection-note{font-size:15px;line-height:1.5}
+ .loadout-screen .loadout-summary{padding:16px;overflow-y:auto;overscroll-behavior:contain}
+ .loadout-screen .picked-items{gap:8px}
+ .loadout-screen .picked-items>div{min-width:0;padding:8px 5px}
+ .loadout-screen .picked-items b{font-size:15px;line-height:1.4;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+ .loadout-screen .picked-items .emblem{width:32px;height:32px;flex-shrink:0}
+ .loadout-screen .draft-pool{margin-top:12px;padding-top:12px}
+ .loadout-screen .draft-pool>small{font-size:15px;margin-bottom:9px}
+ .loadout-screen .draft-pool>div{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+ .loadout-screen .draft-pool button{font-size:15px;line-height:1.35;min-height:42px;padding:6px;gap:6px}
+ .loadout-screen .draft-pool button span{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+ .loadout-screen .draft-pool .emblem{width:28px;height:28px;flex-shrink:0}
+ .loadout-screen .draft-pool b{font-size:12px;flex-shrink:0}
+ .loadout-screen .selection-grid{gap:12px}
+ .loadout-screen .selection-grid .pick-tile{grid-template-rows:minmax(0,1fr) 32px}
+ .loadout-screen .selection-grid .pick-tile>.choice{padding:12px 14px!important;gap:5px}
+ .loadout-screen .selection-grid .pick-tile>.choice>strong{font-size:22px;line-height:1.4;padding-right:40px;overflow:visible}
+ .loadout-screen .selection-grid .pick-tile>.choice>small{font-size:14px;line-height:1.5}
+ .loadout-screen .selection-grid .pick-tile .pick-summary{font-size:14px!important;line-height:1.6;max-height:4.8em;-webkit-line-clamp:3;margin-top:5px}
+ .loadout-screen .selection-grid .pick-tile .choice-mark{width:32px!important;height:32px!important;inset:10px 10px auto auto!important}
+ .loadout-screen .selection-grid .pick-tile .choice-mark .emblem{width:32px!important;height:32px!important}
+ .loadout-screen .pick-detail{font-size:14px;line-height:29px}
+ .loadout-screen .decision-heading{font-size:18px;line-height:1.5}
+}
+@media(min-width:1000px) and (max-height:740px){
+ .loadout-screen .loadout-summary{padding:10px}
+ .loadout-screen .draft-pool{margin-top:7px;padding-top:7px}
+ .loadout-screen .draft-pool>div{gap:4px}
+ .loadout-screen .draft-pool button{min-height:34px;padding:4px 6px;font-size:14px}
+ .loadout-screen .selection-grid .pick-tile>.choice{padding:7px 10px!important;gap:3px}
+ .loadout-screen .selection-grid .pick-tile>.choice>strong{font-size:19px}
+ .loadout-screen .selection-grid .pick-tile .pick-summary{font-size:13px!important;line-height:1.5;max-height:3em;-webkit-line-clamp:2}
+}
+@media(min-width:1000px){
+ .loadout-screen .selection-grid .pick-tile .pick-summary{white-space:normal!important;overflow-wrap:anywhere;flex-shrink:0}
+}
